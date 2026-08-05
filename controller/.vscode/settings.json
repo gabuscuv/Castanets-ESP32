@@ -1,0 +1,15 @@
+{
+  "idf.currentSetup": "${env:IDF_PATH}",
+  "idf.openOcdConfigs": [
+    "board/esp32s3-builtin.cfg"
+  ],
+  "idf.customExtraVars": {
+    "IDF_TARGET": "esp32s3"
+  },
+  "clangd.path": "${env:IDF_PATH}/bin/clangd",
+  "clangd.arguments": [
+    "--background-index",
+    "--query-driver=**",
+    "--compile-commands-dir=$HOME/git/esp32/CommsHub/controller/build"
+  ]
+}
