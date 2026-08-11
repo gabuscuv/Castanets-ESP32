@@ -1,12 +1,12 @@
 {
-  "idf.currentSetup": "${env:IDF_PATH}",
+  "idf.currentSetup": "/nix/store/8a8i7k33n3b43hmgg8k61wnij4j022l1-esp-idf-v5.5.2",
   "idf.openOcdConfigs": [
     "board/esp32s3-builtin.cfg"
   ],
   "idf.customExtraVars": {
     "IDF_TARGET": "esp32s3"
   },
-  "clangd.path": "${env:IDF_PATH}/bin/clangd",
+  "clangd.path": "/nix/store/7nnrwqdvx1bkyp5xc3wgxj03rdd1bsg9-esp-clang-esp-idf-v5.5.2/bin/clangd",
   "clangd.arguments": [
     "--background-index",
     "--query-driver=**",

@@ -1,0 +1,40 @@
+{
+    "version": 1,
+    "type": "inputFrame",
+    "hubTime": 32123,
+    "leftController": {
+        "clicks": [
+            { "time": 32080, "type": "click" },
+            { "time": 32123, "type": "click" }
+        ],
+        "imu": {
+            "time": 32120,
+            "x": 0.12,
+            "y": -0.04,
+            "z": 0.98
+        }
+    },
+
+    "rightController": {
+        "clicks": [
+            { "time": 32105, "type": "click" }
+        ],
+        "imu": {
+            "time": 32121,
+            "x": 0.01,
+            "y": 0.03,
+            "z": 0.99
+        }
+    },
+
+    "feetController": [
+        {
+            "time": 32110,
+            "value": 0.5
+        },
+        {
+            "time": 32123,
+            "value": 0.2
+        }
+    ]
+}

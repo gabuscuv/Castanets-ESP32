@@ -1,4 +1,5 @@
 _examples/**
 **/build/**
 **/.cache/**
+**/managed_components/**
 *.lock
