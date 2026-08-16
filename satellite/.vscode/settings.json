@@ -2,5 +2,6 @@
     "idf.currentSetup": "${env:IDF_PATH}",
     "idf.openOcdConfigs": [
         "board/esp32c3-builtin.cfg"
-    ]
+    ],
+    "C_Cpp.intelliSenseEngine": "disabled"
 }

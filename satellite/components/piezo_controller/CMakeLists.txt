@@ -1,6 +1,6 @@
 idf_component_register(
     SRCS
-        "piezo_init.c"
+        "piezocontroller.c"
 
     INCLUDE_DIRS
         "include"
