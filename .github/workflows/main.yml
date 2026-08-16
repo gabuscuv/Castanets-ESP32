@@ -1,0 +1,67 @@
+name: ESP-IDF Build
+
+on:
+  push:
+    branches:
+      - main
+
+  pull_request:
+
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  ESP_IDF_VERSION: v5.5
+
+jobs:
+  # ------------------------------------------------------------
+  # CentralHub project
+  # ------------------------------------------------------------
+  build-centralhub:
+    name: Building CentralHub (ESP32-S3)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build CentralHub project
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: ${{ env.ESP_IDF_VERSION }}
+          target: esp32s3
+          path: controller
+
+
+  # ------------------------------------------------------------
+  # Satellite project
+  # ------------------------------------------------------------
+  build-satellite:
+    name: Build Satellite (Target ESP32-${{ matrix.target }})
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - esp32s3
+          - esp32c3
+          - esp32c6
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build ESP32-${{ matrix.target }}
+        uses: espressif/esp-idf-ci-action@v1
+        with:
+          esp_idf_version: ${{ env.ESP_IDF_VERSION }}
+          target: ${{ matrix.target }}
+          path: satellite
+
