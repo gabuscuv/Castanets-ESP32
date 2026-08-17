@@ -4,346 +4,305 @@
 #include <string.h>
 
 #include "freertos/FreeRTOS.h"
-#include "freertos/queue.h"
 #include "freertos/task.h"
 
 #include "esp_log.h"
-#include "esp_now.h"
-#include "esp_wifi.h"
 #include "esp_mac.h"
 
 #include "ESPNOW_CONFIG.h"
+#include "satellite_espnow_protocol.h"
 
-static const char *TAG = "satellite_client_espnow";
+static const char *TAG = "satellite_client";
 
-#define SATELLITE_CLIENT_ESPNOW_QUEUE_SIZE 6
+static TaskHandle_t s_discovery_task = NULL;
 
-static const uint8_t s_broadcast_mac[ESP_NOW_ETH_ALEN] = {
-    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-};
+static satellite_espnow_packet_callback_t s_recv_callback = NULL;
 
-typedef struct
+static uint8_t s_server_mac[ESP_NOW_ETH_ALEN];
+
+static satellite_role_t s_requested_role = SATELLITE_ROLE_NONE;
+static satellite_role_t s_role = SATELLITE_ROLE_NONE;
+
+static volatile bool s_connected = false;
+
+static TickType_t s_last_server_packet = 0;
+
+
+/* -------------------------------------------------------------------------- */
+/* Discovery                                                                   */
+/* -------------------------------------------------------------------------- */
+
+static void send_discovery(void)
 {
-    uint8_t src_mac[ESP_NOW_ETH_ALEN];
-    uint8_t data[ESP_NOW_MAX_DATA_LEN];
-    uint16_t data_len;
-} satellite_client_espnow_event_t;
+    satellite_discover_packet_t packet = {
+        .type = SATELLITE_MSG_DISCOVER,
+        .requested_role = s_requested_role,
+    };
 
-static QueueHandle_t s_espnow_queue = NULL;
-static TaskHandle_t s_espnow_task = NULL;
-static satellite_client_espnow_packet_callback_t s_recv_callback = NULL;
-static bool s_initialized = false;
-
-static bool is_broadcast(const uint8_t mac[ESP_NOW_ETH_ALEN])
-{
-    return memcmp(mac, s_broadcast_mac, ESP_NOW_ETH_ALEN) == 0;
-}
-
-static esp_err_t add_peer(
-    const uint8_t mac[ESP_NOW_ETH_ALEN],
-    bool encrypt)
-{
-    if (esp_now_is_peer_exist(mac))
-        return ESP_OK;
-
-    esp_now_peer_info_t peer = {0};
-
-    memcpy(peer.peer_addr, mac, ESP_NOW_ETH_ALEN);
-    peer.channel = CONFIG_ESPNOW_CHANNEL;
-    peer.ifidx = ESP_IF_WIFI_AP;
-    peer.encrypt = encrypt;
-
-    if (encrypt)
-    {
-        memcpy(peer.lmk, CONFIG_ESPNOW_LMK, ESP_NOW_KEY_LEN);
-    }
-
-    esp_err_t err = esp_now_add_peer(&peer);
+    esp_err_t err = satellite_espnow_send_broadcast(
+        (const uint8_t *)&packet,
+        sizeof(packet));
 
     if (err != ESP_OK)
     {
-        ESP_LOGE(TAG,
-                 "Failed to add peer " MACSTR ": %s",
-                 MAC2STR(mac),
-                 esp_err_to_name(err));
-    }
-
-    return err;
-}
-
-/*
- * Runs in the Wi-Fi/ESP-NOW callback context.
- * Keep this function small: copy the packet and queue it.
- */
-static void satellite_client_espnow_recv_cb(
-    const esp_now_recv_info_t *recv_info,
-    const uint8_t *data,
-    int data_len)
-{
-    if (s_espnow_queue == NULL)
-        return;
-
-    if (recv_info == NULL ||
-        recv_info->src_addr == NULL ||
-        data == NULL ||
-        data_len <= 0 ||
-        data_len > ESP_NOW_MAX_DATA_LEN)
-    {
-        return;
-    }
-
-    satellite_client_espnow_event_t event = {
-        .data_len = (uint16_t)data_len,
-    };
-
-    memcpy(event.src_mac,
-           recv_info->src_addr,
-           ESP_NOW_ETH_ALEN);
-
-    memcpy(event.data,
-           data,
-           (size_t)data_len);
-
-    /*
-     * Never block the ESP-NOW callback.
-     */
-    if (xQueueSend(s_espnow_queue, &event, 0) != pdTRUE)
-    {
-        ESP_LOGW(TAG, "RX queue full; packet dropped");
+        ESP_LOGW(
+            TAG,
+            "Discovery send failed: %s",
+            esp_err_to_name(err));
     }
 }
 
-static void satellite_client_espnow_task(void *arg)
+
+static void satellite_client_discovery_task(void *arg)
 {
     (void)arg;
 
-    satellite_client_espnow_event_t event;
-
-    ESP_LOGI(TAG, "ESP-NOW worker started");
+    ESP_LOGI(
+        TAG,
+        "Discovery task started");
 
     while (true)
     {
-        if (xQueueReceive(s_espnow_queue,
-                          &event,
-                          portMAX_DELAY) != pdTRUE)
+        /*
+         * Once connected, monitor the server.
+         */
+        if (s_connected)
         {
-            continue;
+            TickType_t now = xTaskGetTickCount();
+
+            const TickType_t timeout =
+                pdMS_TO_TICKS(
+                    CONFIG_ESPNOW_CONNECTION_TIMEOUT_MS);
+
+            if ((now - s_last_server_packet) > timeout)
+            {
+                ESP_LOGW(
+                    TAG,
+                    "Server timeout; restarting discovery");
+
+                s_connected = false;
+                s_role = SATELLITE_ROLE_NONE;
+
+                memset(
+                    s_server_mac,
+                    0,
+                    sizeof(s_server_mac));
+            }
         }
 
-        if (s_recv_callback != NULL)
+        /*
+         * Broadcast discovery while disconnected.
+         */
+        if (!s_connected)
         {
-            s_recv_callback(event.src_mac,
-                            event.data,
-                            event.data_len);
+            send_discovery();
         }
+
+        vTaskDelay(
+            pdMS_TO_TICKS(
+                CONFIG_ESPNOW_DISCOVERY_INTERVAL_MS));
     }
 }
 
-static esp_err_t create_queue(void)
+
+/* -------------------------------------------------------------------------- */
+/* RX                                                                         */
+/* -------------------------------------------------------------------------- */
+
+static esp_err_t satellite_client_rx(
+    const uint8_t src_mac[ESP_NOW_ETH_ALEN],
+    const uint8_t *data,
+    uint16_t data_len)
 {
-    if (s_espnow_queue != NULL)
+    if (data == NULL || data_len == 0)
+        return ESP_ERR_INVALID_ARG;
+
+    const uint8_t type = data[0];
+
+    if (type == SATELLITE_MSG_ASSIGN)
+    {
+        if (data_len < sizeof(satellite_assign_packet_t))
+            return ESP_ERR_INVALID_SIZE;
+
+        const satellite_assign_packet_t *assignment =
+            (const satellite_assign_packet_t *)data;
+
+        memcpy(
+            s_server_mac,
+            src_mac,
+            ESP_NOW_ETH_ALEN);
+
+        esp_err_t err =
+            satellite_espnow_add_peer(s_server_mac);
+
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(
+                TAG,
+                "Failed to add server peer: %s",
+                esp_err_to_name(err));
+
+            return err;
+        }
+
+        s_role = assignment->role;
+        s_connected = true;
+        s_last_server_packet = xTaskGetTickCount();
+
+        ESP_LOGI(
+            TAG,
+            "Connected to server " MACSTR " with role %u",
+            MAC2STR(s_server_mac),
+            s_role);
+
         return ESP_OK;
+    }
 
-    s_espnow_queue = xQueueCreate(
-        SATELLITE_CLIENT_ESPNOW_QUEUE_SIZE,
-        sizeof(satellite_client_espnow_event_t));
-
-    if (s_espnow_queue == NULL)
+    if (s_connected)
     {
-        ESP_LOGE(TAG, "Failed to create ESP-NOW RX queue");
-        return ESP_ERR_NO_MEM;
+        s_last_server_packet =
+            xTaskGetTickCount();
+    }
+
+    if (s_recv_callback != NULL)
+    {
+        return s_recv_callback(
+            src_mac,
+            data,
+            data_len);
     }
 
     return ESP_OK;
 }
 
-static esp_err_t init_stack(void)
-{
-    esp_err_t err = esp_now_init();
-
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG,
-                 "esp_now_init failed: %s",
-                 esp_err_to_name(err));
-        return err;
-    }
-
-    err = esp_now_register_recv_cb(
-        satellite_client_espnow_recv_cb);
-
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG,
-                 "esp_now_register_recv_cb failed: %s",
-                 esp_err_to_name(err));
-        esp_now_deinit();
-        return err;
-    }
-
-#if CONFIG_ESPNOW_ENABLE_POWER_SAVE
-
-    err = esp_now_set_wake_window(CONFIG_ESPNOW_WAKE_WINDOW);
-
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG,
-                 "esp_now_set_wake_window failed: %s",
-                 esp_err_to_name(err));
-        esp_now_deinit();
-        return err;
-    }
-
-    err = esp_wifi_connectionless_module_set_wake_interval(
-        CONFIG_ESPNOW_WAKE_INTERVAL);
-
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG,
-                 "Failed to set ESP-NOW wake interval: %s",
-                 esp_err_to_name(err));
-        esp_now_deinit();
-        return err;
-    }
-
-#endif
-
-    err = esp_now_set_pmk(
-        (const uint8_t *)CONFIG_ESPNOW_PMK);
-
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG,
-                 "esp_now_set_pmk failed: %s",
-                 esp_err_to_name(err));
-        esp_now_deinit();
-        return err;
-    }
-
-    return ESP_OK;
-}
+/* -------------------------------------------------------------------------- */
+/* Public API                                                                 */
+/* -------------------------------------------------------------------------- */
 
 esp_err_t satellite_client_espnow_init(
-    satellite_client_espnow_packet_callback_t recv_cb)
+    satellite_espnow_packet_callback_t recv_cb,
+    satellite_role_t requested_role)
 {
     if (recv_cb == NULL)
         return ESP_ERR_INVALID_ARG;
 
-    if (s_initialized)
-    {
-        ESP_LOGW(TAG, "ESP-NOW already initialized");
-        return ESP_OK;
-    }
-
-    esp_err_t err = create_queue();
-    if (err != ESP_OK)
-        return err;
-
-    err = init_stack();
-    if (err != ESP_OK)
-    {
-        vQueueDelete(s_espnow_queue);
-        s_espnow_queue = NULL;
-
-        return err;
-    }
-
     s_recv_callback = recv_cb;
 
+    s_requested_role = requested_role;
+
+    s_role = SATELLITE_ROLE_NONE;
+    s_connected = false;
+
+    memset(
+        s_server_mac,
+        0,
+        sizeof(s_server_mac));
+
+    esp_err_t err =
+        satellite_espnow_init(
+            satellite_client_rx);
+
+    if (err != ESP_OK)
+    {
+        s_recv_callback = NULL;
+        return err;
+    }
+
+
     if (xTaskCreate(
-            satellite_client_espnow_task,
-            "sat_client_espnow",
-            4096,
+            satellite_client_discovery_task,
+            "sat_discovery",
+            3072,
             NULL,
             4,
-            &s_espnow_task) != pdPASS)
+            &s_discovery_task) != pdPASS)
     {
         ESP_LOGE(
             TAG,
-            "Failed to create ESP-NOW worker task");
+            "Failed to create discovery task");
 
-        esp_now_deinit();
+        satellite_espnow_deinit();
 
-        vQueueDelete(s_espnow_queue);
-        s_espnow_queue = NULL;
+        s_recv_callback = NULL;
 
         return ESP_ERR_NO_MEM;
     }
 
-    s_initialized = true;
-
-    ESP_LOGI(TAG, "ESP-NOW initialized");
+    ESP_LOGI(
+        TAG,
+        "Client ESP-NOW initialized");
 
     return ESP_OK;
 }
 
-esp_err_t satellite_client_espnow_send( const uint8_t dest_mac[ESP_NOW_ETH_ALEN], const uint8_t *data, size_t data_len)
-{
-    if (!s_initialized) {return ESP_ERR_INVALID_STATE;}
 
-    if (dest_mac == NULL || data == NULL) { return ESP_ERR_INVALID_ARG; }
-
-    if (data_len == 0 || data_len > ESP_NOW_MAX_DATA_LEN) { return ESP_ERR_INVALID_SIZE; }
-
-    const bool broadcast = is_broadcast(dest_mac);
-
-    /*
-     * Unicast requires a peer. Add it lazily on first transmission.
-     */
-    esp_err_t err = add_peer(dest_mac, !broadcast);
-
-    if (err != ESP_OK) { return err; }
-
-    err = esp_now_send(dest_mac, data, data_len);
-
-    if (err != ESP_OK)
-    {
-        ESP_LOGE(TAG,
-                 "Failed to send packet to " MACSTR ": %s",
-                 MAC2STR(dest_mac),
-                 esp_err_to_name(err));
-    }
-
-    return err;
-}
-
-esp_err_t satellite_client_espnow_send_broadcast(
+esp_err_t satellite_client_espnow_send(
     const uint8_t *data,
     size_t data_len)
 {
-    return satellite_client_espnow_send(s_broadcast_mac, data, data_len);
+    if (!s_connected)
+        return ESP_ERR_INVALID_STATE;
+
+    if (data == NULL)
+        return ESP_ERR_INVALID_ARG;
+
+    if (data_len == 0 ||
+        data_len > ESP_NOW_MAX_DATA_LEN)
+    {
+        return ESP_ERR_INVALID_SIZE;
+    }
+
+    return satellite_espnow_send(
+        s_server_mac,
+        data,
+        data_len);
 }
+
+
+bool satellite_client_espnow_is_connected(void)
+{
+    return s_connected;
+}
+
+
+satellite_role_t satellite_client_espnow_get_role(void)
+{
+    return s_role;
+}
+
+
+bool satellite_client_espnow_get_server_mac(
+    uint8_t mac[ESP_NOW_ETH_ALEN])
+{
+    if (!s_connected || mac == NULL)
+        return false;
+
+    memcpy(
+        mac,
+        s_server_mac,
+        ESP_NOW_ETH_ALEN);
+
+    return true;
+}
+
 
 esp_err_t satellite_client_espnow_deinit(void)
 {
-    if (!s_initialized) { return ESP_OK; }
-
-    /*
-     * Stop the worker before deleting its queue.
-     */
-    if (s_espnow_task != NULL)
+    if (s_discovery_task != NULL)
     {
-        vTaskDelete(s_espnow_task);
-        s_espnow_task = NULL;
+        vTaskDelete(s_discovery_task);
+        s_discovery_task = NULL;
     }
 
-    esp_err_t err = esp_now_deinit();
+    s_connected = false;
+    s_role = SATELLITE_ROLE_NONE;
 
-    if (s_espnow_queue != NULL)
-    {
-        vQueueDelete(s_espnow_queue);
-        s_espnow_queue = NULL;
-    }
+    memset(
+        s_server_mac,
+        0,
+        sizeof(s_server_mac));
 
     s_recv_callback = NULL;
-    s_initialized = false;
 
-    if (err != ESP_OK)
-    {
-        ESP_LOGW(TAG,
-                 "esp_now_deinit failed: %s",
-                 esp_err_to_name(err));
-    }
-
-    return err;
+    return satellite_espnow_deinit();
 }

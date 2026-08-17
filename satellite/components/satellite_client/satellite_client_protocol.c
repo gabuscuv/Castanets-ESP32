@@ -33,9 +33,9 @@ static esp_err_t send_json(
         cJSON_free(json);
         return ESP_ERR_INVALID_SIZE;
     }
-
+    ESP_LOGI(TAG, "Sending JSON");
     esp_err_t err = satellite_client_espnow_send(
-        dest_mac, (const uint8_t *)json, len);
+        (const uint8_t *)json, len);
     cJSON_free(json);
     return err;
 }

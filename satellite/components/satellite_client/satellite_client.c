@@ -47,8 +47,9 @@ esp_err_t satellite_client_init(
         return err;
     }
 
-    err = satellite_client_espnow_init(satellite_client_protocol_handle);
-
+err = satellite_client_espnow_init(
+satellite_client_protocol_handle,
+    SATELLITE_ROLE_NONE);
     if (err != ESP_OK)
     {
         s_time_callback = NULL;

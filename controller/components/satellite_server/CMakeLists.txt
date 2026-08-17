@@ -1,5 +1,6 @@
 idf_component_register(
     SRCS
+        "satellite_espnow.c"
         "satellite_server_espnow.c"
         "satellite_server_wifi.c"
         "satellite_server_protocol.c"
