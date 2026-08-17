@@ -1,25 +1,71 @@
 #include "satellite_server_wifi.h"
 
+#include "nvs_flash.h"
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "esp_wifi.h"
 
 #include "ESPNOW_CONFIG.h"
 
-/* WiFi should start before using ESPNOW */
-int satellite_server_wifi_init(void)
+esp_err_t satellite_server_wifi_init(void)
 {
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_err_t err;
+
+    err = nvs_flash_init();
+
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES ||
+        err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        err = nvs_flash_erase();
+        if (err != ESP_OK)
+        {
+            return err;
+        }
+
+        err = nvs_flash_init();
+    }
+
+    if (err != ESP_OK){ return err; }
+
+    err = esp_netif_init();
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE){return err;}
+
+    err = esp_event_loop_create_default();
+    if (err != ESP_OK && err != ESP_ERR_INVALID_STATE){return err;}
+
     wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    ESP_ERROR_CHECK( esp_wifi_start());
-    ESP_ERROR_CHECK( esp_wifi_set_channel(CONFIG_ESPNOW_CHANNEL, WIFI_SECOND_CHAN_NONE));
+
+    err = esp_wifi_init(&cfg);
+    if (err != ESP_OK){ return err;}
+
+    err = esp_wifi_set_storage(WIFI_STORAGE_RAM);
+    if (err != ESP_OK){return err;}
+
+    err = esp_wifi_set_mode(WIFI_MODE_STA);
+    if (err != ESP_OK){ return err; }
+
+    err = esp_wifi_start();
+    if (err != ESP_OK){ return err; }
+
+    err = esp_wifi_set_channel(
+        CONFIG_ESPNOW_CHANNEL,
+        WIFI_SECOND_CHAN_NONE
+    );
+
+    if (err != ESP_OK){ return err; }
 
 #if CONFIG_ESPNOW_ENABLE_LONG_RANGE
-    ESP_ERROR_CHECK( esp_wifi_set_protocol(ESPNOW_WIFI_IF, WIFI_PROTOCOL_11B|WIFI_PROTOCOL_11G|WIFI_PROTOCOL_11N|WIFI_PROTOCOL_LR) );
+
+    err = esp_wifi_set_protocol(
+        WIFI_IF_STA,
+        WIFI_PROTOCOL_11B |
+        WIFI_PROTOCOL_11G |
+        WIFI_PROTOCOL_11N |
+        WIFI_PROTOCOL_LR
+    );
+
+    if (err != ESP_OK){ return err; }
 #endif
-    return 0;
+
+    return ESP_OK;
 }

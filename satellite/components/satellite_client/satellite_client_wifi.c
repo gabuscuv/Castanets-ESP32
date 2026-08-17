@@ -1,16 +1,26 @@
+#include "satellite_client_wifi.h"
+#include "nvs_flash.h"
+#include "esp_wifi.h"
 #include "esp_event.h"
 #include "esp_netif.h"
 #include "esp_wifi.h"
 #include "esp_mac.h"
-
 #include "esp_log.h"
-#include "satellite_client_wifi.h"
 #include "ESPNOW_CONFIG.h"
 
 /* WiFi should start before using ESPNOW */
 esp_err_t satellite_client_wifi_init(void)
 {
     esp_err_t err;
+
+    err = nvs_flash_init();
+    if (err == ESP_ERR_NVS_NO_FREE_PAGES ||
+        err == ESP_ERR_NVS_NEW_VERSION_FOUND)
+    {
+        ESP_ERROR_CHECK(nvs_flash_erase());
+        err = nvs_flash_init();
+    }
+    ESP_ERROR_CHECK(err);
 
     err = esp_netif_init();
     if (err != ESP_OK){ return err; }
