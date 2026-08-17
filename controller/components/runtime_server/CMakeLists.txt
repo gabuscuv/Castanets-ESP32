@@ -1,6 +1,6 @@
 idf_component_register(
     SRCS
-        "runtime_server_init.c"
+        "runtime_server.c"
 
     INCLUDE_DIRS
         "include"
