@@ -4,9 +4,7 @@ on:
   push:
     branches:
       - main
-
   pull_request:
-
   workflow_dispatch:
 
 permissions:
@@ -23,6 +21,13 @@ jobs:
     name: Building CentralHub (ESP32-S3)
     runs-on: ubuntu-latest
 
+    # Run only if controller/ changed
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(join(github.event.commits.*.modified), 'controller/') ||
+      contains(join(github.event.commits.*.added), 'controller/') ||
+      contains(join(github.event.commits.*.removed), 'controller/')
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -36,13 +41,19 @@ jobs:
           target: esp32s3
           path: controller
 
-
   # ------------------------------------------------------------
   # Satellite project
   # ------------------------------------------------------------
   build-satellite:
     name: Build Satellite (Target ESP32-${{ matrix.target }})
     runs-on: ubuntu-latest
+
+    # Run only if satellite/ changed
+    if: |
+      github.event_name == 'workflow_dispatch' ||
+      contains(join(github.event.commits.*.modified), 'satellite/') ||
+      contains(join(github.event.commits.*.added), 'satellite/') ||
+      contains(join(github.event.commits.*.removed), 'satellite/')
 
     strategy:
       fail-fast: false
@@ -64,4 +75,3 @@ jobs:
           esp_idf_version: ${{ env.ESP_IDF_VERSION }}
           target: ${{ matrix.target }}
           path: satellite
-
