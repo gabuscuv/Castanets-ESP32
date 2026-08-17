@@ -10,10 +10,11 @@
 #define LEDCONTROLLER_GPIO       GPIO_NUM_15
 #define LEDCONTROLLER_ACTIVE_LOW true
 
-#elif CONFIG_IDF_TARGET_ESP32C3
+#elif CONFIG_IDF_TARGET_ESP32C3 || CONFIG_IDF_TARGET_ESP32S3
 
 /*
- * XIAO ESP32-C3 has no software-controllable onboard user LED.
+ * the Waveshare ESP32-S3-Touch-LCD-1.85 and
+ * the XIAO ESP32-C3 has no software-controllable onboard user LED.
  */
 
 #else
