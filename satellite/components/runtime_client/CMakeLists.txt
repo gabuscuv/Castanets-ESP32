@@ -5,6 +5,6 @@ idf_component_register(
     INCLUDE_DIRS
         "include"
     
-    REQUIRES satellite_client piezo_controller
+    REQUIRES satellite_client piezo_controller led_controller
 
 )
