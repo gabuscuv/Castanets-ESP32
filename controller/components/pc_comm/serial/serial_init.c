@@ -1,4 +1,5 @@
 #include "serial_init.h"
+#include "esp_err.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "tinyusb.h"
@@ -14,7 +15,7 @@ static TaskHandle_t serialcomm_task_handle = NULL;
 static bool running = false;
 
 
-int usbdevice_init()
+esp_err_t usbdevice_init()
 {
     ESP_LOGI(TAG, "USB initialization");
     const tinyusb_config_t tusb_cfg = TINYUSB_DEFAULT_CONFIG();
@@ -34,6 +35,6 @@ int usbdevice_init()
                                     NULL, 5, &serialcomm_task_handle);
 
     running = true;
-    return result;
+    return ESP_OK;
 };
 
