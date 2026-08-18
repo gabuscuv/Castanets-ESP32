@@ -23,6 +23,8 @@ typedef struct {
 typedef struct {
     HubTime click[CONTROLLER_CLICK_HISTORY];
     ImuSample imu;
+    int click_head;   // next write position
+    int click_count;  // number of valid entries
 } ControllerState;
 
 typedef struct {

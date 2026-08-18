@@ -8,8 +8,9 @@
 
 #include "satellite_espnow_protocol.h"
 
+typedef esp_err_t (*satellite_protocol_callback_t)(satellite_message_t);
 
-esp_err_t satellite_server_protocol_init(void);
+esp_err_t satellite_server_protocol_init(satellite_protocol_callback_t satellite_cb);
 
 esp_err_t satellite_server_protocol_deinit(void);
 

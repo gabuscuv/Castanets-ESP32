@@ -5,5 +5,5 @@ idf_component_register(
     INCLUDE_DIRS
         "include"
     
-    REQUIRES pc_comm satellite_server joycon_controller 
+    REQUIRES pc_comm pc_presentation satellite_server joycon_controller 
 )

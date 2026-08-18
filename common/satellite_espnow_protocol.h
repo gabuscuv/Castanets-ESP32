@@ -44,7 +44,7 @@ typedef struct
 
 typedef struct
 {
-    satellite_message_type_t role;
+    satellite_controller_role_t role;
     satellite_message_type_t type;
 
     union

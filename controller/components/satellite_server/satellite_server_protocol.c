@@ -21,9 +21,7 @@
 static bool s_initialized= false;
 
 static const char *TAG = "satellite_server_protocol";
-
-
-
+satellite_protocol_callback_t rx_callback;
 
 /* -------------------------------------------------------------------------- */
 /* JSON                                                                       */
@@ -130,8 +128,8 @@ static esp_err_t handle_json(
     satellite_server_clientmgnt_get_client_role(client_mac,(satellite_role_t*)(msg_parsed->role));
 
     /* Transfer ownership to caller */
-    /// CALLBACK
-    
+    rx_callback(*msg_parsed);
+
     free(msg_parsed);
     return ESP_OK;
 }
@@ -187,10 +185,15 @@ esp_err_t satellite_server_protocol_handle(
 /* Lifecycle                                                                  */
 /* -------------------------------------------------------------------------- */
 
-esp_err_t satellite_server_protocol_init(void)
-{
+esp_err_t
+satellite_server_protocol_init(satellite_protocol_callback_t satellite_cb) {
     if (s_initialized){ return ESP_OK; }
+    if (satellite_cb == NULL){ return ESP_ERR_INVALID_ARG; }
+    
+    rx_callback = satellite_cb;
+
     esp_err_t err;
+
     ESP_LOGI(TAG,"Initializing Satellite client management");
 
     err = satellite_server_clientmgnt_init();

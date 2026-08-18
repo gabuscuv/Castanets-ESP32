@@ -1,7 +1,7 @@
 #include "usbdevice_serial_to.h"
 #include "tinyusb_cdc_acm.h"
 #include "cJSON.h"
-#include "shared/struct.h"
+#include "inputframe.h"
 
 static const char *TAG = "USBDEVICE_SERIAL_TO";
 
