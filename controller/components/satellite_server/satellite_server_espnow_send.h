@@ -1,20 +1,25 @@
 #pragma once
 
-#include <stddef.h>
 #include <stdint.h>
 
 #include "esp_err.h"
 #include "esp_now.h"
 
-esp_err_t satellite_espnow_send_init(void);
+#include "satellite_espnow_protocol.h"
 
-esp_err_t satellite_espnow_send(
-    const uint8_t dest_mac[ESP_NOW_ETH_ALEN],
-    const uint8_t *data,
-    size_t data_len);
 
-esp_err_t satellite_espnow_send_broadcast(
-    const uint8_t *data,
-    size_t data_len);
-
-esp_err_t satellite_espnow_send_deinit(void);
+/**
+ * Send a role/server assignment to a satellite client.
+ *
+ * The client MAC is learned dynamically during discovery.
+ *
+ * The packet contains:
+ *   - assigned role
+ *   - server STA MAC address
+ *
+ * The client is automatically added as an unencrypted ESP-NOW peer
+ * if it is not already registered.
+ */
+esp_err_t satellite_server_espnow_send_assignment(
+    const uint8_t client_mac[ESP_NOW_ETH_ALEN],
+    satellite_role_t role);

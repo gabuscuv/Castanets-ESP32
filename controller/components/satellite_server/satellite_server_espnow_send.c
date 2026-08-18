@@ -1,33 +1,29 @@
-// SHAMEFUL CODE
 #include "satellite_server_espnow_send.h"
-#include "esp_now.h"
+
 #include <stdbool.h>
 #include <string.h>
 
 #include "esp_log.h"
+#include "esp_mac.h"
+#include "esp_now.h"
+#include "esp_wifi.h"
+
 #include "ESPNOW_CONFIG.h"
 
-static const char *TAG = "satellite_espnow_send";
 
-static const uint8_t s_broadcast_mac[ESP_NOW_ETH_ALEN] = {
-    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF
-};
+static const char *TAG = "satellite_server_send";
 
-static bool s_initialized = false;
 
-static bool is_broadcast(
+/* -------------------------------------------------------------------------- */
+/* Peer management                                                            */
+/* -------------------------------------------------------------------------- */
+
+static esp_err_t satellite_server_add_peer(
     const uint8_t mac[ESP_NOW_ETH_ALEN])
 {
-    return memcmp(
-        mac,
-        s_broadcast_mac,
-        ESP_NOW_ETH_ALEN) == 0;
-}
+    if (mac == NULL)
+        return ESP_ERR_INVALID_ARG;
 
-static esp_err_t add_peer(
-    const uint8_t mac[ESP_NOW_ETH_ALEN],
-    bool encrypt)
-{
     if (esp_now_is_peer_exist(mac))
         return ESP_OK;
 
@@ -39,16 +35,8 @@ static esp_err_t add_peer(
         ESP_NOW_ETH_ALEN);
 
     peer.channel = CONFIG_ESPNOW_CHANNEL;
-    // peer.ifidx = ESPNOW_WIFI_IF; // TODO
-    peer.encrypt = encrypt;
-
-    if (encrypt)
-    {
-        memcpy(
-            peer.lmk,
-            CONFIG_ESPNOW_LMK,
-            ESP_NOW_KEY_LEN);
-    }
+    peer.ifidx = WIFI_IF_STA;
+    peer.encrypt = false;
 
     esp_err_t err = esp_now_add_peer(&peer);
 
@@ -56,90 +44,96 @@ static esp_err_t add_peer(
     {
         ESP_LOGE(
             TAG,
-            "Failed to add peer : %s",
-           
+            "Failed to add peer " MACSTR ": %s",
+            MAC2STR(mac),
             esp_err_to_name(err));
+
+        return err;
     }
 
-    return err;
-}
-
-esp_err_t satellite_espnow_send_init(void)
-{
-    if (s_initialized)
-        return ESP_OK;
-
-    /*
-     * ESP-NOW itself is initialized by satellite_server_espnow.c.
-     * This module only owns its own bookkeeping.
-     */
-    s_initialized = true;
+    ESP_LOGI(
+        TAG,
+        "Added ESP-NOW peer " MACSTR,
+        MAC2STR(mac));
 
     return ESP_OK;
 }
 
-esp_err_t satellite_espnow_send(
-    const uint8_t dest_mac[ESP_NOW_ETH_ALEN],
-    const uint8_t *data,
-    size_t data_len)
-{
-    if (!s_initialized)
-        return ESP_ERR_INVALID_STATE;
 
-    if (dest_mac == NULL || data == NULL)
+/* -------------------------------------------------------------------------- */
+/* Assignment                                                                 */
+/* -------------------------------------------------------------------------- */
+
+esp_err_t satellite_server_espnow_send_assignment(
+    const uint8_t client_mac[ESP_NOW_ETH_ALEN],
+    satellite_role_t role)
+{
+    if (client_mac == NULL)
         return ESP_ERR_INVALID_ARG;
 
-    if (data_len == 0 || data_len > ESP_NOW_MAX_DATA_LEN)
-        return ESP_ERR_INVALID_SIZE;
-
-    const bool broadcast = is_broadcast(dest_mac);
-
     /*
-     * Unicast packets require a peer entry.
-     * Peers are added lazily when the application sends to them.
+     * The client MAC came from the ESP-NOW discovery packet, so it
+     * is the MAC address we need to add as a unicast peer.
      */
-    esp_err_t err = add_peer(dest_mac, !broadcast);
+    esp_err_t err = satellite_server_add_peer(client_mac);
 
     if (err != ESP_OK)
         return err;
 
-    err = esp_now_send(
-        dest_mac,
-        data,
-        data_len);
+
+    /*
+     * Get our own STA MAC.
+     *
+     * The client needs this address so that subsequent packets can
+     * be sent directly to the server instead of being broadcast.
+     */
+    satellite_assign_packet_t packet = {
+        .type = SATELLITE_MSG_ASSIGN,
+        .role = role,
+    };
+
+    err = esp_wifi_get_mac(
+        WIFI_IF_STA,
+        packet.server_mac);
 
     if (err != ESP_OK)
     {
         ESP_LOGE(
             TAG,
-            "Failed to send packet to : %s",
-            
+            "Failed to get server STA MAC: %s",
             esp_err_to_name(err));
+
+        return err;
     }
 
-    return err;
-}
 
-esp_err_t satellite_espnow_send_broadcast(
-    const uint8_t *data,
-    size_t data_len)
-{
-    return satellite_espnow_send(
-        s_broadcast_mac,
-        data,
-        data_len);
-}
+    ESP_LOGI(
+        TAG,
+        "Sending assignment to " MACSTR
+        ": role=%u server=" MACSTR,
+        MAC2STR(client_mac),
+        role,
+        MAC2STR(packet.server_mac));
 
-esp_err_t satellite_espnow_send_deinit(void)
-{
-    if (!s_initialized)
-        return ESP_OK;
 
     /*
-     * Do NOT call esp_now_deinit() here.
-     * satellite_server_espnow.c owns the ESP-NOW lifecycle.
+     * Send the small binary assignment packet.
      */
-    s_initialized = false;
+    err = esp_now_send(
+        client_mac,
+        (const uint8_t *)&packet,
+        sizeof(packet));
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(
+            TAG,
+            "Failed to send assignment to " MACSTR ": %s",
+            MAC2STR(client_mac),
+            esp_err_to_name(err));
+
+        return err;
+    }
 
     return ESP_OK;
 }

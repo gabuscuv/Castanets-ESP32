@@ -1,17 +1,23 @@
 #pragma once
 
+#include <stdbool.h>
 #include <stdint.h>
 
-#include "esp_now.h"
 #include "esp_err.h"
+#include "esp_now.h"
 
-/*
- * Entry point for messages received from a satellite/controller.
- *
- * This function is called by the ESP-NOW RX worker task, not directly
- * from the ESP-NOW Wi-Fi callback.
- */
+#include "satellite_espnow_protocol.h"
+
+
+esp_err_t satellite_server_protocol_init(void);
+
+esp_err_t satellite_server_protocol_deinit(void);
+
 esp_err_t satellite_server_protocol_handle(
-    const uint8_t src_mac[ESP_NOW_ETH_ALEN],
+    const uint8_t client_mac[ESP_NOW_ETH_ALEN],
     const uint8_t *data,
     uint16_t data_len);
+
+bool satellite_server_protocol_get_role(
+    const uint8_t client_mac[ESP_NOW_ETH_ALEN],
+    satellite_role_t *role);
