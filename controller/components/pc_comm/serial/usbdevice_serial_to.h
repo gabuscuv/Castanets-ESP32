@@ -1,4 +1,4 @@
 #pragma once
-
-const char *jsonGenerator();
-void serial_send_loop();
+#include "esp_err.h"
+#include "inputframe.h"
+esp_err_t serial_send(InputFrame inputFrane);

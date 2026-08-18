@@ -13,6 +13,7 @@
 static const char *TAG = "runtime_server";
 
 static InputFrame current_ctx;
+static TaskHandle_t pc_report_task_handle = NULL;
 
 static inline void controller_push_click(ControllerState *s, HubTime t)
 {
@@ -36,6 +37,16 @@ esp_err_t satellite_push_callback(controller_role_t controller, uint32_t time)
     return ESP_OK;
 }
 
+static void satellite_pc_report_loop(void *arg)
+{
+  (void)arg;
+  while (true)
+  {   
+    pc_comm_send(current_ctx);
+    vTaskDelay(pdMS_TO_TICKS(5000)); 
+  }
+}
+
 esp_err_t runtime_server_init()
 {
 
@@ -52,7 +63,22 @@ esp_err_t runtime_server_init()
     // if (err != ESP_OK)
     //     return err;
 
-    // if (err != ESP_OK){ return 1;}
+    BaseType_t result = xTaskCreate(
+        satellite_pc_report_loop,
+        "sat_pc_report",
+        4096,
+        NULL,
+        5,
+        &pc_report_task_handle);
+
+    if (result != pdPASS)
+    {
+        ESP_LOGE(
+            TAG,
+            "Failed to create PC report task");
+
+        return ESP_ERR_NO_MEM;
+    }
 
       err = satellite_server_init(
         satellite_push_callback);
@@ -63,6 +89,9 @@ esp_err_t runtime_server_init()
             TAG,
             "Failed to initialize satellite server: %s",
             esp_err_to_name(err));
+
+        vTaskDelete(pc_report_task_handle);
+        pc_report_task_handle = NULL;
 
         return err;
     }

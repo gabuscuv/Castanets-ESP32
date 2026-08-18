@@ -11,7 +11,6 @@
 
 static const char *TAG = "USBDEVICE_INIT";
 
-static TaskHandle_t serialcomm_task_handle = NULL;
 static bool running = false;
 
 
@@ -30,9 +29,6 @@ esp_err_t usbdevice_init()
     };
 
     ESP_ERROR_CHECK(tinyusb_cdcacm_init(&acm_cfg));
-
-    BaseType_t result = xTaskCreate(serial_send_loop, "serialcomm_task", 4096,
-                                    NULL, 5, &serialcomm_task_handle);
 
     running = true;
     return ESP_OK;
