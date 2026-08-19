@@ -21,5 +21,9 @@
  * if it is not already registered.
  */
 esp_err_t satellite_server_espnow_send_assignment(
+    const uint8_t client_mac[ESP_NOW_ETH_ALEN], satellite_role_t role);
+
+esp_err_t satellite_server_espnow_send_json(
     const uint8_t client_mac[ESP_NOW_ETH_ALEN],
-    satellite_role_t role);
+    const char *json,
+    size_t json_len);
