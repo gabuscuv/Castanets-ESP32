@@ -1,6 +1,7 @@
 #include "satellite_server_protocol.h"
 
 #include <stdbool.h>
+#include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -11,6 +12,7 @@
 #include "esp_mac.h"
 #include "esp_wifi.h"
 
+#include "satellite_espnow.h"
 #include "satellite_espnow_protocol.h"
 #include "satellite_server_espnow.h"
 #include "satellite_server_espnow_send.h"
@@ -230,4 +232,104 @@ bool satellite_server_protocol_get_role(
     return satellite_server_clientmgnt_get_client_role(
         client_mac,
         role);
+}
+
+esp_err_t sendjson_allclients(cJSON* message)
+{
+    satellite_client_info_t clients[SATELLITE_SERVER_MAX_CLIENTS];
+
+    size_t count = satellite_server_clientmgnt_get_clients(
+        clients, SATELLITE_SERVER_MAX_CLIENTS);
+    
+    char *serialized = cJSON_PrintUnformatted(message);
+
+    if (serialized == NULL)
+        return ESP_ERR_NO_MEM;
+
+    size_t json_len = strlen(serialized);
+
+    for (size_t i = 0; i < count; ++i) {
+
+      satellite_server_espnow_send_json(clients[i].mac,
+                                        serialized,
+                                        json_len);
+    }
+
+  return ESP_OK;
+}
+
+esp_err_t satellite_server_protocol_reset_satellites_time() {
+      cJSON *message = cJSON_CreateObject();
+
+    if (message == NULL)
+        return ESP_ERR_NO_MEM;
+
+    if (!cJSON_AddStringToObject(
+            message,
+            "type",
+            "request_status"))
+    {
+        cJSON_Delete(message);
+        return ESP_ERR_NO_MEM;
+    }
+
+    esp_err_t err = sendjson_allclients(message);
+    if(err){return ESP_ERR_NOT_FINISHED;}
+    
+    return ESP_OK;
+}
+
+esp_err_t satellite_server_protocol_push_time(uint32_t time)
+{
+    cJSON *message = cJSON_CreateObject();
+
+    if (message == NULL)
+        return ESP_ERR_NO_MEM;
+
+    if (!cJSON_AddStringToObject(
+            message,
+            "type",
+            "set_time"))
+    {
+        cJSON_Delete(message);
+        return ESP_ERR_NO_MEM;
+    }
+
+    if (!cJSON_AddNumberToObject(
+            message,
+            "time",
+            time))
+    {
+        cJSON_Delete(message);
+        return ESP_ERR_NO_MEM;
+    }
+
+    esp_err_t err = sendjson_allclients(message);
+
+    cJSON_Delete(message);
+
+    return err;
+}
+
+esp_err_t satellite_server_protocol_request_status(void)
+{
+    cJSON *message = cJSON_CreateObject();
+
+    if (message == NULL)
+        return ESP_ERR_NO_MEM;
+
+    if (!cJSON_AddStringToObject(
+            message,
+            "type",
+            "request_status"))
+    {
+        cJSON_Delete(message);
+        return ESP_ERR_NO_MEM;
+    }
+
+    esp_err_t err = sendjson_allclients(message);
+
+    cJSON_Delete(message);
+
+    return err;
 }

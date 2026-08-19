@@ -22,10 +22,36 @@ typedef struct
 } satellite_client_entry_t;
 
 
-static satellite_client_entry_t s_clients[
-    SATELLITE_SERVER_MAX_CLIENTS
-];
+static satellite_client_entry_t s_clients[SATELLITE_SERVER_MAX_CLIENTS];
 
+size_t satellite_server_clientmgnt_get_clients(
+    satellite_client_info_t *clients,
+    size_t max_clients)
+{
+    if (clients == NULL || max_clients == 0)
+        return 0;
+
+    size_t count = 0;
+
+    for (size_t i = 0;
+         i < SATELLITE_SERVER_MAX_CLIENTS && count < max_clients;
+         ++i)
+    {
+        if (!s_clients[i].used)
+            continue;
+
+        memcpy(
+            clients[count].mac,
+            s_clients[i].mac,
+            ESP_NOW_ETH_ALEN);
+
+        clients[count].role = s_clients[i].role;
+
+        ++count;
+    }
+
+    return count;
+}
 esp_err_t satellite_server_clientmgnt_init() {
         memset(
         s_clients,

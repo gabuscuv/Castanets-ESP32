@@ -20,5 +20,10 @@ esp_err_t satellite_server_protocol_handle(
     uint16_t data_len);
 
 bool satellite_server_protocol_get_role(
-    const uint8_t client_mac[ESP_NOW_ETH_ALEN],
-    satellite_role_t *role);
+    const uint8_t client_mac[ESP_NOW_ETH_ALEN], satellite_role_t *role);
+
+esp_err_t satellite_server_protocol_reset_satellites_time();
+
+esp_err_t satellite_server_protocol_push_time(uint32_t time);
+
+esp_err_t satellite_server_protocol_request_status();
