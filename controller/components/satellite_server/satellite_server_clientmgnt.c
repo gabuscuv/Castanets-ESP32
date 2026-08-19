@@ -1,5 +1,6 @@
 #include "satellite_server_clientmgnt.h"
 
+#include <stddef.h>
 #include <stdint.h>
 #include <string.h>
 #include "esp_err.h"
@@ -9,7 +10,7 @@
 #include "satellite_espnow_protocol.h"
 
 static const char *TAG = "satellite_server_clientmgnt";
-
+static bool s_initialized = false;
 typedef struct
 {
     bool used;
@@ -24,9 +25,6 @@ typedef struct
 static satellite_client_entry_t s_clients[
     SATELLITE_SERVER_MAX_CLIENTS
 ];
-
-
-static bool s_initialized = false;
 
 esp_err_t satellite_server_clientmgnt_init() {
         memset(
@@ -83,16 +81,60 @@ static satellite_client_entry_t *find_free_client(void)
     return NULL;
 }
 
+satellite_role_t satellite_server_clientmgnt_get_role_available(void)
+{
+    bool left_occupied = false;
+    bool right_occupied = false;
+
+    for (size_t i = 0; i < SATELLITE_SERVER_MAX_CLIENTS; ++i)
+    {
+        if (!s_clients[i].used)
+            continue;
+
+        switch (s_clients[i].role)
+        {
+        case SATELLITE_CONTROLLER_ROLE_LEFT:
+            left_occupied = true;
+            break;
+
+        case SATELLITE_CONTROLLER_ROLE_RIGHT:
+            right_occupied = true;
+            break;
+
+        default:
+            break;
+        }
+
+        if (left_occupied && right_occupied)
+            break;
+    }
+
+    if (!left_occupied)
+    {
+        return SATELLITE_CONTROLLER_ROLE_LEFT;
+    }
+    if (!right_occupied)
+    {
+        return SATELLITE_CONTROLLER_ROLE_RIGHT;
+    }
+    return SATELLITE_CONTROLLER_ROLE_UNKNOWN;
+}
 
 esp_err_t satellite_server_clientmgnt_register_client(
     const uint8_t mac[ESP_NOW_ETH_ALEN],
     satellite_role_t role)
 {
-    if (mac == NULL)
-        return ESP_ERR_INVALID_ARG;
+    if (!s_initialized) {return ESP_ERR_INVALID_STATE;}
 
-    satellite_client_entry_t *client =
-        find_client(mac);
+    if (mac == NULL) {return ESP_ERR_INVALID_ARG;}
+
+    if (role != SATELLITE_CONTROLLER_ROLE_LEFT &&
+        role != SATELLITE_CONTROLLER_ROLE_RIGHT)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    satellite_client_entry_t *client = find_client(mac);
 
     /*
      * Client already known.
@@ -101,6 +143,22 @@ esp_err_t satellite_server_clientmgnt_register_client(
      */
     if (client != NULL)
     {
+
+        if (client->role == role)
+            return ESP_OK;
+
+        for (size_t i = 0; i < SATELLITE_SERVER_MAX_CLIENTS; ++i)
+        {
+            if (!s_clients[i].used)
+                continue;
+
+            if (&s_clients[i] == client)
+                continue;
+
+            if (s_clients[i].role == role)
+                return ESP_ERR_INVALID_STATE;
+        }
+
         client->role = role;
 
         ESP_LOGI(
@@ -112,9 +170,9 @@ esp_err_t satellite_server_clientmgnt_register_client(
         return ESP_OK;
     }
 
-    client = find_free_client();
+    satellite_client_entry_t *free_client = find_free_client();
 
-    if (client == NULL)
+    if (free_client == NULL)
     {
         ESP_LOGW(
             TAG,
@@ -124,13 +182,18 @@ esp_err_t satellite_server_clientmgnt_register_client(
         return ESP_ERR_NO_MEM;
     }
 
-    memset(client, 0, sizeof(*client));
+    for (size_t i = 0; i < SATELLITE_SERVER_MAX_CLIENTS; ++i)
+    {
+        if (!s_clients[i].used){continue;}
 
-    client->used = true;
-    client->role = role;
+        if (s_clients[i].role == role){return ESP_ERR_INVALID_STATE;}
+    }
+
+    free_client->used = true;
+    free_client->role = role;
 
     memcpy(
-        client->mac,
+        free_client->mac,
         mac,
         ESP_NOW_ETH_ALEN);
 

@@ -20,15 +20,14 @@ esp_err_t satellite_protocol_handle_discovery(
         MAC2STR(client_mac),
         packet->requested_role);
 
-    /*
-     * For now, simply accept the requested role.
-     *
-     * If requested_role == NONE, you can later implement automatic
-     * role assignment here.
-     */
-    satellite_role_t assigned_role =
-        packet->requested_role;
 
+    satellite_role_t assigned_role = packet->requested_role;
+
+    if (packet->requested_role == SATELLITE_CONTROLLER_ROLE_UNKNOWN)
+    {
+        assigned_role = satellite_server_clientmgnt_get_role_available();
+    }
+    
     esp_err_t err = satellite_server_clientmgnt_register_client(
         client_mac,
         assigned_role);
