@@ -14,23 +14,87 @@ static const char *TAG = "USBDEVICE_INIT";
 static bool running = false;
 
 
-esp_err_t usbdevice_init()
+esp_err_t usbdevice_init(void)
 {
     ESP_LOGI(TAG, "USB initialization");
+
+    if (running){return ESP_OK;}
+
     const tinyusb_config_t tusb_cfg = TINYUSB_DEFAULT_CONFIG();
-    ESP_ERROR_CHECK(tinyusb_driver_install(&tusb_cfg));
+
+    esp_err_t err = tinyusb_driver_install(&tusb_cfg);
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(
+            TAG,
+            "Failed to install TinyUSB driver: %s",
+            esp_err_to_name(err));
+
+        return err;
+    }
 
     tinyusb_config_cdcacm_t acm_cfg = {
         .cdc_port = TINYUSB_CDC_ACM_0,
         .callback_rx = &tinyusb_cdc_rx_callback,
         .callback_rx_wanted_char = NULL,
-        .callback_line_state_changed = &tinyusb_cdc_line_state_changed_callback,
+        .callback_line_state_changed =
+            &tinyusb_cdc_line_state_changed_callback,
         .callback_line_coding_changed = NULL
     };
 
-    ESP_ERROR_CHECK(tinyusb_cdcacm_init(&acm_cfg));
+    err = tinyusb_cdcacm_init(&acm_cfg);
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(
+            TAG,
+            "Failed to initialize CDC ACM: %s",
+            esp_err_to_name(err));
+
+        tinyusb_driver_uninstall();
+
+        return err;
+    }
 
     running = true;
-    return ESP_OK;
-};
 
+    return ESP_OK;
+}
+
+esp_err_t usbdevice_deinit(void)
+{
+    ESP_LOGI(TAG, "USB deinitialization");
+
+    if (!running)
+        return ESP_OK;
+
+    esp_err_t err = tinyusb_cdcacm_deinit(
+        TINYUSB_CDC_ACM_0);
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(
+            TAG,
+            "Failed to deinitialize CDC ACM: %s",
+            esp_err_to_name(err));
+
+        return err;
+    }
+
+    err = tinyusb_driver_uninstall();
+
+    if (err != ESP_OK)
+    {
+        ESP_LOGE(
+            TAG,
+            "Failed to uninstall TinyUSB driver: %s",
+            esp_err_to_name(err));
+
+        return err;
+    }
+
+    running = false;
+
+    return ESP_OK;
+}
