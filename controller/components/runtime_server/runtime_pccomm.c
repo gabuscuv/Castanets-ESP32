@@ -9,6 +9,7 @@
 #include "freertos/task.h"
 
 #include "pc_comm.h"
+#include "satellite_server.h"
 #include "runtime_inputframectx.h"
 
 static const char *TAG = "runtime_pccomm";
@@ -24,7 +25,7 @@ static void runtime_pccomm_report_task(void *arg)
     {
         InputFrame* frame = runtime_inputframectx_get();
 
-        esp_err_t err = pc_comm_send(*frame);
+        esp_err_t err = pccomm_sendInputFrame(frame);
 
         if (err != ESP_OK)
         {
@@ -38,6 +39,29 @@ static void runtime_pccomm_report_task(void *arg)
     }
 }
 
+esp_err_t runtime_pccomm_rx_handle(pc_message_t callback) {
+  switch (callback.msg_type) {
+
+    
+    case PCCOMM_CMD_SET_GAME_TIME:
+      satellite_server_push_time(callback.gametime);
+    case PCCOMM_CMD_RESET_TIMEHUB:
+      satellite_server_reset_satellites_time();
+    case PCCOMM_CMD_REQUEST_STATUS:
+      satellite_server_request_status();
+
+    case PCCOMM_CMD_START_SONG:
+      // TODO: PENDING
+
+    case PCCOMM_EVT_HANDSHAKE_ACK:
+    case PCCOMM_EVT_STATUS:
+    case PCCOMM_CMD_HANDSHAKE:
+    break;
+  };
+  return ESP_OK;
+}
+
+
 esp_err_t runtime_pccomm_init(void)
 {
     if (s_initialized)
@@ -45,7 +69,7 @@ esp_err_t runtime_pccomm_init(void)
         return ESP_OK;
     }
 
-    esp_err_t err = pc_comm_init();
+    esp_err_t err = pccomm_init(runtime_pccomm_rx_handle);
 
     if (err != ESP_OK)
     {
@@ -71,7 +95,7 @@ esp_err_t runtime_pccomm_init(void)
             TAG,
             "Failed to create PC report task");
 
-        pc_comm_deinit();
+        pccomm_deinit();
 
         s_pc_report_task_handle = NULL;
 
@@ -103,7 +127,7 @@ esp_err_t runtime_pccomm_deinit(void)
         vTaskDelete(task);
     }
 
-    esp_err_t err = pc_comm_deinit();
+    esp_err_t err = pccomm_deinit();
 
     if (err != ESP_OK)
     {

@@ -6,15 +6,13 @@
 #include "tinyusb_default_config.h"
 #include "esp_log.h"
 #include "usbdevice_serial_commstates.h"
-#include "usbdevice_serial_from.h"
-#include "usbdevice_serial_to.h"
 
 static const char *TAG = "USBDEVICE_INIT";
 
 static bool running = false;
 
 
-esp_err_t usbdevice_init(void)
+esp_err_t usbdevice_init(tusb_cdcacm_callback_t callback_rx)
 {
     ESP_LOGI(TAG, "USB initialization");
 
@@ -36,10 +34,10 @@ esp_err_t usbdevice_init(void)
 
     tinyusb_config_cdcacm_t acm_cfg = {
         .cdc_port = TINYUSB_CDC_ACM_0,
-        .callback_rx = &tinyusb_cdc_rx_callback,
+        .callback_rx = callback_rx,
         .callback_rx_wanted_char = NULL,
         .callback_line_state_changed =
-            &tinyusb_cdc_line_state_changed_callback,
+            &usbdevice_serial_commstates_changed,
         .callback_line_coding_changed = NULL
     };
 

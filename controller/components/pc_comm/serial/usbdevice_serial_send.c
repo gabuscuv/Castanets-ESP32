@@ -1,4 +1,4 @@
-#include "usbdevice_serial_to.h"
+#include "usbdevice_serial_send.h"
 #include "esp_err.h"
 #include "tinyusb_cdc_acm.h"
 #include "cJSON.h"
@@ -19,15 +19,8 @@ union serial_message {
   } a;
 };
 
-const char *jsonGenerator(InputFrame inputFrane) {
-    cJSON *root = cJSON_CreateObject();
-    return cJSON_Print(root);
-}
-
-esp_err_t serial_send(InputFrame inputFrane)
+esp_err_t serial_send(const char* message)
 {
-    const char* message = jsonGenerator(inputFrane);
-
     size_t messageSize = strlen(message);
     size_t offset = 0;
     

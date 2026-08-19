@@ -11,7 +11,7 @@ static const char *TAG = "USBDEVICE_COMM_STATES";
  * @param[in] itf   CDC device index
  * @param[in] event CDC event type
  */
-void tinyusb_cdc_line_state_changed_callback(int itf, cdcacm_event_t *event)
+void usbdevice_serial_commstates_changed(int itf, cdcacm_event_t *event)
 {
     int dtr = event->line_state_changed_data.dtr;
     int rts = event->line_state_changed_data.rts;
