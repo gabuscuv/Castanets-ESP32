@@ -69,3 +69,26 @@ esp_err_t satellite_server_wifi_init(void)
 
     return ESP_OK;
 }
+
+esp_err_t satellite_server_wifi_deinit(void)
+{
+    esp_err_t err;
+
+    err = esp_wifi_stop();
+
+    if (err != ESP_OK &&
+        err != ESP_ERR_INVALID_STATE)
+    {
+        return err;
+    }
+
+    err = esp_wifi_deinit();
+
+    if (err != ESP_OK &&
+        err != ESP_ERR_INVALID_STATE)
+    {
+        return err;
+    }
+
+    return ESP_OK;
+}

@@ -55,3 +55,19 @@ esp_err_t satellite_server_init(satellite_push_callback_t st_push_cb)
 
     return ESP_OK;
 }
+
+esp_err_t satellite_server_deinit()
+{
+    esp_err_t err;
+    
+    err = satellite_server_protocol_deinit();
+    if (err != ESP_OK) { return err; }
+
+    err = satellite_server_wifi_deinit();
+    if (err != ESP_OK) { return err; }
+
+    err = satellite_espnow_deinit();
+    if (err != ESP_OK) { return err; }
+
+    return ESP_OK;
+}
