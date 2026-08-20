@@ -5,15 +5,14 @@
 
 #include "esp_err.h"
 #include "esp_now.h"
+#include "satellite_client_protocol_types.h"
 
-
-
-typedef void (*satellite_client_protocol_time_callback_t)(satellite_message_t);
+typedef esp_err_t (*satellite_client_protocol_callback_t)(satellite_message_tt);
 /*
  * Initialize protocol state and register the callback that is notified
  * when a server-time message is received.
  */
-esp_err_t satellite_client_protocol_init(satellite_client_protocol_time_callback_t time_callback);
+esp_err_t satellite_client_protocol_init(satellite_client_protocol_callback_t time_callback);
 
 /*
  * Send a request asking the server to assign a controller role.

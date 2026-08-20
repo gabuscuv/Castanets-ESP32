@@ -11,7 +11,7 @@
 static const char *TAG = "satellite_client_protocol";
 static satellite_client_role_t s_role = SATELLITE_CLIENT_ROLE_UNKNOWN;
 static bool s_initialized;
-satellite_client_protocol_time_callback_t s_time_callback = NULL;
+satellite_client_protocol_callback_t s_time_callback = NULL;
 
 static esp_err_t send_json(
     const uint8_t dest_mac[ESP_NOW_ETH_ALEN], cJSON *root)
@@ -35,7 +35,7 @@ static esp_err_t send_json(
     return err;
 }
 
-esp_err_t satellite_client_protocol_init(satellite_client_protocol_time_callback_t time_callback)
+esp_err_t satellite_client_protocol_init(satellite_client_protocol_callback_t time_callback)
 {
     s_time_callback = time_callback;
 
@@ -76,7 +76,7 @@ esp_err_t satellite_client_protocol_send_imu(
     {
         return ESP_ERR_INVALID_STATE;
     }
-    
+
     if (!server_mac)
     {
         return ESP_ERR_INVALID_ARG;
@@ -121,7 +121,7 @@ esp_err_t satellite_client_protocol_json_handle(const uint8_t src_mac[ESP_NOW_ET
     /*
      * Controller role assignment
      */
-    satellite_message_t satellite_msg;
+    satellite_message_tt satellite_msg;
 
     err = satellite_client_protocol_parse(root, &satellite_msg);
 
@@ -193,12 +193,3 @@ static esp_err_t satellite_client_protocol_handle(
         data_len);
 }
 
-satellite_client_role_t satellite_client_protocol_get_role(void)
-{
-    return s_role;
-}
-
-bool satellite_client_protocol_has_role(void)
-{
-    return s_role != SATELLITE_CLIENT_ROLE_UNKNOWN;
-}

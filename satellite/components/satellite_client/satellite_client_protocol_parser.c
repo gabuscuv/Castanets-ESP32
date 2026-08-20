@@ -22,7 +22,7 @@ static const char *TAG = "SATELLITE_CLIENT_PROTOCOL";
  * }
  */
 esp_err_t satellite_client_protocol_parse_request_status(
-    const cJSON *message, satellite_message_t *out)
+    const cJSON *message, satellite_message_tt *out)
 {
     if (message == NULL || out == NULL)
     {
@@ -47,9 +47,9 @@ esp_err_t satellite_client_protocol_parse_request_status(
  */
 static esp_err_t satellite_client_protocol_parse_set_time(
     const cJSON *message,
-    uint32_t *time)
+    satellite_message_tt *out)
 {
-    if (message == NULL || time == NULL)
+    if (message == NULL || out == NULL)
         return ESP_ERR_INVALID_ARG;
 
     const cJSON *time_item = cJSON_GetObjectItemCaseSensitive(
@@ -91,7 +91,7 @@ static esp_err_t satellite_client_protocol_parse_set_time(
     ESP_LOGI(TAG, "Received status request");
 
     out->type = CONTROLLER_CMD_SET_GAME_TIME;
-    out->time = (uint32_t)time_item->valuedouble;
+    out->time = (uint64_t)time_item->valuedouble;
 
     return ESP_OK;
 }
@@ -100,7 +100,7 @@ static esp_err_t satellite_client_protocol_parse_set_time(
  * @brief Parse a message received from the satellite server.
  */
 esp_err_t satellite_client_protocol_parse(
-    const cJSON *messag, satellite_message_t *out)
+    const cJSON *message, satellite_message_tt *out)
 {
     if (message == NULL)
         return ESP_ERR_INVALID_ARG;
