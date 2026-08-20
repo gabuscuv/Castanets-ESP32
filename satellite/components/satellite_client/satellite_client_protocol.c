@@ -37,7 +37,13 @@ static esp_err_t send_json(
     return err;
 }
 
+<<<<<<< HEAD
 esp_err_t satellite_client_protocol_init(satellite_client_protocol_callback_t time_callback) {
+=======
+esp_err_t satellite_client_protocol_init(satellite_client_protocol_callback_t time_callback)
+{
+    s_time_callback = time_callback;
+>>>>>>> 465cfe5 ([satellite/satellite_client] Runtime_Client Callback Implementation (#2))
 
     if (time_callback == NULL) {return ESP_ERR_INVALID_ARG;}
   
