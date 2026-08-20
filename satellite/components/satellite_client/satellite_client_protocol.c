@@ -137,59 +137,12 @@ esp_err_t satellite_client_protocol_json_handle(const uint8_t src_mac[ESP_NOW_ET
     return err;
 }
 
-static esp_err_t satellite_client_protocol_handle(
-    const uint8_t src_mac[ESP_NOW_ETH_ALEN],
-    const uint8_t *data,
-    uint16_t data_len)
+esp_err_t
+satellite_client_protocol_handle(const uint8_t src_mac[ESP_NOW_ETH_ALEN],
+                                 const uint8_t *data, uint16_t data_len)
 {
-    if (data == NULL || data_len == 0)
-        return ESP_ERR_INVALID_ARG;
 
-    const uint8_t type = data[0];
-
-    if (type == SATELLITE_MSG_ASSIGN)
-    {
-        if (data_len < sizeof(satellite_assign_packet_t))
-            return ESP_ERR_INVALID_SIZE;
-
-        const satellite_assign_packet_t *assignment =
-            (const satellite_assign_packet_t *)data;
-
-        esp_err_t err =
-            satellite_espnow_add_peer(src_mac);
-
-        if (err != ESP_OK)
-        {
-            ESP_LOGE(
-                TAG,
-                "Failed to add server peer: %s",
-                esp_err_to_name(err));
-
-            return err;
-        }
-
-        s_role = assignment->role;
-        s_connected = true;
-        s_last_server_packet = xTaskGetTickCount();
-
-        ESP_LOGI(
-            TAG,
-            "Connected to server " MACSTR " with role %u",
-            MAC2STR(src_mac),
-            s_role);
-
-        return ESP_OK;
-    }
-
-    if (s_connected)
-    {
-        s_last_server_packet =
-            xTaskGetTickCount();
-    }
-
-    return satellite_client_protocol_json_handle(
-        src_mac,
-        data,
-        data_len);
+    // TODO: HEARTBEAT/DISCOVERY-ACK HANDLING
+    return satellite_client_protocol_json_handle(src_mac,data,data_len);
 }
 
