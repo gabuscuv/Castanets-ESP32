@@ -27,7 +27,7 @@ esp_err_t runtime_satellite_deinit()
 
 esp_err_t runtime_satellite_push_callback(controller_role_t controller, uint32_t time)
 {
-    ControllerState *s = runtime_inputframectx_get_controller();
+    ControllerState *s = runtime_inputframectx_get_controller(controller);
 
     controller_push_click(s, time);
 
