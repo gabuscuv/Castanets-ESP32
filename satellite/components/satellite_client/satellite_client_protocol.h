@@ -36,10 +36,3 @@ esp_err_t satellite_client_protocol_send_imu(
     float x,
     float y,
     float z);
-
-/*
- * Controller role assigned by the server.
- */
-satellite_client_role_t satellite_client_protocol_get_role(void);
-
-bool satellite_client_protocol_has_role(void);

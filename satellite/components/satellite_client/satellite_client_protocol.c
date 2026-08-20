@@ -5,22 +5,13 @@
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "satellite_client_espnow.h"
+#include "satellite_client_protocol_parser.h"
 #include "satellite_client_protocol_types.h"
+
 static const char *TAG = "satellite_client_protocol";
 static satellite_client_role_t s_role = SATELLITE_CLIENT_ROLE_UNKNOWN;
 static bool s_initialized;
 satellite_client_protocol_time_callback_t s_time_callback = NULL;
-
-static satellite_client_role_t role_from_json(const cJSON *item)
-{
-    if (!cJSON_IsString(item) || !item->valuestring)
-        return SATELLITE_CLIENT_ROLE_UNKNOWN;
-    if (strcmp(item->valuestring, "Left") == 0)
-        return SATELLITE_CLIENT_ROLE_LEFT;
-    if (strcmp(item->valuestring, "Right") == 0)
-        return SATELLITE_CLIENT_ROLE_RIGHT;
-    return SATELLITE_CLIENT_ROLE_UNKNOWN;
-}
 
 static esp_err_t send_json(
     const uint8_t dest_mac[ESP_NOW_ETH_ALEN], cJSON *root)
@@ -57,10 +48,6 @@ esp_err_t satellite_client_protocol_send_click(
     const uint8_t server_mac[ESP_NOW_ETH_ALEN],
     uint64_t time)
 {
-    if (!s_initialized || !satellite_client_protocol_has_role())
-    {
-        return ESP_ERR_INVALID_STATE;
-    }
     if (!server_mac)
     {
         return ESP_ERR_INVALID_ARG;
@@ -85,10 +72,11 @@ esp_err_t satellite_client_protocol_send_imu(
     uint64_t time,
     float x, float y, float z)
 {
-    if (!s_initialized || !satellite_client_protocol_has_role())
+    if (!s_initialized)
     {
         return ESP_ERR_INVALID_STATE;
     }
+    
     if (!server_mac)
     {
         return ESP_ERR_INVALID_ARG;
@@ -129,12 +117,14 @@ esp_err_t satellite_client_protocol_json_handle(const uint8_t src_mac[ESP_NOW_ET
         cJSON_Delete(root);
         return ESP_ERR_INVALID_ARG;
     }
-
+    esp_err_t err;
     /*
      * Controller role assignment
      */
     satellite_message_t satellite_msg;
-    err = satellite_client_protocol_parse(root,satellite_msg);
+
+    err = satellite_client_protocol_parse(root, &satellite_msg);
+
     cJSON_Delete(root);
     
     if(err != ESP_OK)
