@@ -3,8 +3,9 @@
 #include <string.h>
 #include "cJSON.h"
 #include "esp_log.h"
+#include "esp_mac.h"
 #include "satellite_client_espnow.h"
-
+#include "satellite_client_protocol_types.h"
 static const char *TAG = "satellite_client_protocol";
 static satellite_client_role_t s_role = SATELLITE_CLIENT_ROLE_UNKNOWN;
 static bool s_initialized;
@@ -26,10 +27,13 @@ static esp_err_t send_json(
 {
     char *json = cJSON_PrintUnformatted(root);
     if (!json)
+    {
         return ESP_ERR_NO_MEM;
+    }
 
     size_t len = strlen(json);
-    if (len > ESP_NOW_MAX_DATA_LEN) {
+    if (len > ESP_NOW_MAX_DATA_LEN)
+    {
         cJSON_free(json);
         return ESP_ERR_INVALID_SIZE;
     }
@@ -49,38 +53,24 @@ esp_err_t satellite_client_protocol_init(satellite_client_protocol_time_callback
     return ESP_OK;
 }
 
-esp_err_t satellite_client_protocol_request_role(
-    const uint8_t server_mac[ESP_NOW_ETH_ALEN])
-{
-    if (!s_initialized)
-        return ESP_ERR_INVALID_STATE;
-    if (!server_mac)
-        return ESP_ERR_INVALID_ARG;
-
-    cJSON *root = cJSON_CreateObject();
-    if (!root)
-        return ESP_ERR_NO_MEM;
-
-    cJSON_AddStringToObject(
-        root, "type", "request_controller_role");
-
-    esp_err_t err = send_json(server_mac, root);
-    cJSON_Delete(root);
-    return err;
-}
-
 esp_err_t satellite_client_protocol_send_click(
     const uint8_t server_mac[ESP_NOW_ETH_ALEN],
     uint64_t time)
 {
     if (!s_initialized || !satellite_client_protocol_has_role())
+    {
         return ESP_ERR_INVALID_STATE;
+    }
     if (!server_mac)
+    {
         return ESP_ERR_INVALID_ARG;
+    }
 
     cJSON *root = cJSON_CreateObject();
     if (!root)
+    {
         return ESP_ERR_NO_MEM;
+    }
 
     cJSON_AddStringToObject(root, "type", "click");
     cJSON_AddNumberToObject(root, "time", (double)time);
@@ -96,13 +86,19 @@ esp_err_t satellite_client_protocol_send_imu(
     float x, float y, float z)
 {
     if (!s_initialized || !satellite_client_protocol_has_role())
+    {
         return ESP_ERR_INVALID_STATE;
+    }
     if (!server_mac)
+    {
         return ESP_ERR_INVALID_ARG;
+    }
 
     cJSON *root = cJSON_CreateObject();
     if (!root)
+    {
         return ESP_ERR_NO_MEM;
+    }
 
     cJSON_AddStringToObject(root, "type", "imu");
     cJSON_AddNumberToObject(root, "time", (double)time);
@@ -115,17 +111,18 @@ esp_err_t satellite_client_protocol_send_imu(
     return err;
 }
 
-esp_err_t satellite_client_protocol_handle(const uint8_t src_mac[ESP_NOW_ETH_ALEN], const uint8_t *data, uint16_t data_len)
+esp_err_t satellite_client_protocol_json_handle(const uint8_t src_mac[ESP_NOW_ETH_ALEN], const uint8_t *data, uint16_t data_len)
 {
     if (!s_initialized)
+    {
         return ESP_ERR_INVALID_STATE;
-
+    }
     if (src_mac == NULL || data == NULL || data_len == 0)
+    {
         return ESP_ERR_INVALID_ARG;
+    }
 
-    cJSON *root = cJSON_ParseWithLength(
-        (const char *)data,
-        data_len);
+    cJSON *root = cJSON_ParseWithLength((const char *)data, data_len);
 
     if (root == NULL || !cJSON_IsObject(root))
     {
@@ -133,105 +130,77 @@ esp_err_t satellite_client_protocol_handle(const uint8_t src_mac[ESP_NOW_ETH_ALE
         return ESP_ERR_INVALID_ARG;
     }
 
-    const cJSON *type =
-        cJSON_GetObjectItemCaseSensitive(root, "type");
-
-    if (!cJSON_IsString(type) || type->valuestring == NULL)
-    {
-        cJSON_Delete(root);
-        return ESP_ERR_INVALID_ARG;
-    }
-
-    esp_err_t err = ESP_ERR_NOT_FOUND;
-
     /*
      * Controller role assignment
      */
-    if (strcmp(
-            type->valuestring,
-            "reply_controller_role") == 0)
-    {
-        const cJSON *role =
-            cJSON_GetObjectItemCaseSensitive(
-                root,
-                "role");
-
-        satellite_client_role_t parsed =
-            role_from_json(role);
-
-        if (parsed == SATELLITE_CLIENT_ROLE_UNKNOWN)
-        {
-            ESP_LOGW(
-                TAG,
-                "Invalid role in controller-role reply");
-
-            err = ESP_ERR_INVALID_ARG;
-        }
-        else
-        {
-            s_role = parsed;
-
-            ESP_LOGI(
-                TAG,
-                "Assigned role: %s",
-                parsed == SATELLITE_CLIENT_ROLE_LEFT
-                    ? "Left"
-                    : "Right");
-
-            err = ESP_OK;
-        }
-    }
-
-    /*
-     * Server time synchronization
-     */
-    else if (strcmp(
-                 type->valuestring,
-                 "server_time") == 0)
-    {
-        const cJSON *time =
-            cJSON_GetObjectItemCaseSensitive(
-                root,
-                "time");
-
-        if (!cJSON_IsNumber(time))
-        {
-            ESP_LOGW(
-                TAG,
-                "Invalid server time");
-
-            err = ESP_ERR_INVALID_ARG;
-        }
-        else
-        {
-            uint64_t server_time =
-                (uint64_t)time->valuedouble;
-
-            ESP_LOGD(
-                TAG,
-                "Server time: %" PRIu64,
-                server_time);
-
-            if (s_time_callback != NULL)
-            {
-                s_time_callback(server_time);
-            }
-
-            err = ESP_OK;
-        }
-    }
-
-    else
-    {
-        ESP_LOGW(
-            TAG,
-            "Unknown protocol message: %s",
-            type->valuestring);
-    }
-
+    satellite_message_t satellite_msg;
+    err = satellite_client_protocol_parse(root,satellite_msg);
     cJSON_Delete(root);
+    
+    if(err != ESP_OK)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    s_time_callback(satellite_msg);
 
     return err;
+}
+
+static esp_err_t satellite_client_protocol_handle(
+    const uint8_t src_mac[ESP_NOW_ETH_ALEN],
+    const uint8_t *data,
+    uint16_t data_len)
+{
+    if (data == NULL || data_len == 0)
+        return ESP_ERR_INVALID_ARG;
+
+    const uint8_t type = data[0];
+
+    if (type == SATELLITE_MSG_ASSIGN)
+    {
+        if (data_len < sizeof(satellite_assign_packet_t))
+            return ESP_ERR_INVALID_SIZE;
+
+        const satellite_assign_packet_t *assignment =
+            (const satellite_assign_packet_t *)data;
+
+        esp_err_t err =
+            satellite_espnow_add_peer(src_mac);
+
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(
+                TAG,
+                "Failed to add server peer: %s",
+                esp_err_to_name(err));
+
+            return err;
+        }
+
+        s_role = assignment->role;
+        s_connected = true;
+        s_last_server_packet = xTaskGetTickCount();
+
+        ESP_LOGI(
+            TAG,
+            "Connected to server " MACSTR " with role %u",
+            MAC2STR(src_mac),
+            s_role);
+
+        return ESP_OK;
+    }
+
+    if (s_connected)
+    {
+        s_last_server_packet =
+            xTaskGetTickCount();
+    }
+
+    return satellite_client_protocol_json_handle(
+        src_mac,
+        data,
+        data_len);
 }
 
 satellite_client_role_t satellite_client_protocol_get_role(void)
