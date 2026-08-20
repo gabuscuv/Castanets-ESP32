@@ -198,6 +198,11 @@ esp_err_t sendjson_allclients(cJSON* message)
     
     char *serialized = cJSON_PrintUnformatted(message);
 
+    cJSON_Delete(message);
+    if (serialized == NULL) {
+      return ESP_ERR_NO_MEM;
+    }
+    
     if (serialized == NULL)
         return ESP_ERR_NO_MEM;
 
