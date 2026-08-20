@@ -187,6 +187,61 @@ esp_err_t satellite_server_protocol_handle(
 /* Lifecycle                                                                  */
 /* -------------------------------------------------------------------------- */
 
+
+esp_err_t sendjson_allclients(cJSON* message)
+{
+    satellite_client_info_t clients[SATELLITE_SERVER_MAX_CLIENTS];
+
+    size_t count = satellite_server_clientmgnt_get_clients(
+        clients, SATELLITE_SERVER_MAX_CLIENTS);
+    
+    char *serialized = cJSON_PrintUnformatted(message);
+
+    if (serialized == NULL)
+        return ESP_ERR_NO_MEM;
+
+    size_t json_len = strlen(serialized);
+
+    for (size_t i = 0; i < count; ++i) {
+
+      satellite_server_espnow_send_json(clients[i].mac,
+                                        serialized,
+                                        json_len);
+    }
+
+  return ESP_OK;
+}
+
+esp_err_t satellite_server_protocol_send_heartbeat(void)
+{
+    cJSON *message = cJSON_CreateObject();
+
+    if (message == NULL)
+        return ESP_ERR_NO_MEM;
+
+    if (!cJSON_AddStringToObject(
+            message,
+            "type",
+            "heartbeat"))
+    {
+        cJSON_Delete(message);
+        return ESP_ERR_NO_MEM;
+    }
+
+    uint32_t timestamp = xTaskGetTickCount();
+
+    if (!cJSON_AddNumberToObject(
+            message,
+            "timestamp",
+            timestamp))
+    {
+        cJSON_Delete(message);
+        return ESP_ERR_NO_MEM;
+    }
+    
+    return sendjson_allclients(message);
+}
+
 esp_err_t
 satellite_server_protocol_init(satellite_protocol_callback_t satellite_cb) {
     if (s_initialized){ return ESP_OK; }
@@ -234,29 +289,7 @@ bool satellite_server_protocol_get_role(
         role);
 }
 
-esp_err_t sendjson_allclients(cJSON* message)
-{
-    satellite_client_info_t clients[SATELLITE_SERVER_MAX_CLIENTS];
 
-    size_t count = satellite_server_clientmgnt_get_clients(
-        clients, SATELLITE_SERVER_MAX_CLIENTS);
-    
-    char *serialized = cJSON_PrintUnformatted(message);
-
-    if (serialized == NULL)
-        return ESP_ERR_NO_MEM;
-
-    size_t json_len = strlen(serialized);
-
-    for (size_t i = 0; i < count; ++i) {
-
-      satellite_server_espnow_send_json(clients[i].mac,
-                                        serialized,
-                                        json_len);
-    }
-
-  return ESP_OK;
-}
 
 esp_err_t satellite_server_protocol_reset_satellites_time() {
       cJSON *message = cJSON_CreateObject();
