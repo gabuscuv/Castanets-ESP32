@@ -1,0 +1,9 @@
+#pragma once
+typedef enum
+{
+    CONTROLLER_ACK_ROLE = 0,
+    CONTROLLER_CMD_START_SONG,
+    CONTROLLER_CMD_SET_GAME_TIME,
+    CONTROLLER_CMD_RESET_TIMEHUB,
+    CONTROLLER_CMD_REQUEST_STATUS,
+} controller_message_type_t;
