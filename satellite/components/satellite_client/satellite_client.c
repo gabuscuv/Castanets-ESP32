@@ -18,14 +18,16 @@ static uint8_t s_server_mac[ESP_NOW_ETH_ALEN];
 static bool s_server_mac_valid = false;
 
 static satellite_client_time_server_callback_t s_time_callback = NULL;
+esp_err_t
+satellite_client_set_server(const uint8_t server_mac[ESP_NOW_ETH_ALEN]);
 
 static esp_err_t satellite_client_protocol_cb(satellite_message_tt msg)
 {
     switch (msg.type)
     {
     case CONTROLLER_ACK_ROLE:
-        s_server_mac_valid = true;
-        memcpy(s_server_mac, msg.ack_controller.hw_server, ESP_NOW_ETH_ALEN);
+        satellite_client_set_server(msg.ack_controller.hw_server);
+        satellite_client_espnow_set_connected(true);
         break;
     default:
         

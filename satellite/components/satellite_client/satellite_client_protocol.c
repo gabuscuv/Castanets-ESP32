@@ -5,8 +5,10 @@
 #include "esp_log.h"
 #include "esp_mac.h"
 #include "satellite_client_espnow.h"
+#include "satellite_client_espnow_send.h"
 #include "satellite_client_protocol_parser.h"
 #include "satellite_client_protocol_types.h"
+#include "satellite_espnow_protocol.h"
 
 static const char *TAG = "satellite_client_protocol";
 static satellite_client_role_t s_role = SATELLITE_CLIENT_ROLE_UNKNOWN;
@@ -29,8 +31,8 @@ static esp_err_t send_json(
         return ESP_ERR_INVALID_SIZE;
     }
     ESP_LOGI(TAG, "Sending JSON");
-    esp_err_t err = satellite_client_espnow_send(
-        (const uint8_t *)json, len);
+    esp_err_t err = satellite_espnow_send(
+        dest_mac, (const uint8_t *)json, len);
     cJSON_free(json);
     return err;
 }
@@ -142,7 +144,49 @@ satellite_client_protocol_handle(const uint8_t src_mac[ESP_NOW_ETH_ALEN],
                                  const uint8_t *data, uint16_t data_len)
 {
 
-    // TODO: HEARTBEAT/DISCOVERY-ACK HANDLING
+    if (data == NULL || data_len == 0)
+        return ESP_ERR_INVALID_ARG;
+
+    const uint8_t type = data[0];
+
+    if (type == SATELLITE_MSG_ASSIGN)
+    {
+        if (data_len < sizeof(satellite_assign_packet_t))
+            return ESP_ERR_INVALID_SIZE;
+
+        const satellite_assign_packet_t *assignment =
+            (const satellite_assign_packet_t *)data;
+
+        esp_err_t err =
+            satellite_espnow_add_peer(src_mac);
+
+        if (err != ESP_OK)
+        {
+            ESP_LOGE(
+                TAG,
+                "Failed to add server peer: %s",
+                esp_err_to_name(err));
+
+            return err;
+        }
+
+        satellite_message_tt satellite_msg;
+        satellite_msg.type = SATELLITE_MSG_ASSIGN;
+        s_time_callback(satellite_msg);
+
+
+        s_role = assignment->role;
+
+        ESP_LOGI(
+            TAG,
+            "Connected to server " MACSTR " with role %u",
+            MAC2STR(src_mac),
+            s_role);
+
+        return ESP_OK;
+    }
+
+
     return satellite_client_protocol_json_handle(src_mac,data,data_len);
 }
 
