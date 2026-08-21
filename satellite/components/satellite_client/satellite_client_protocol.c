@@ -116,7 +116,6 @@ esp_err_t satellite_client_protocol_json_handle(const uint8_t src_mac[ESP_NOW_ET
 
     if (root == NULL || !cJSON_IsObject(root))
     {
-        cJSON_Delete(root);
         return ESP_ERR_INVALID_ARG;
     }
     esp_err_t err;
