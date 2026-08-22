@@ -207,15 +207,20 @@ esp_err_t sendjson_allclients(cJSON* message)
         return ESP_ERR_NO_MEM;
 
     size_t json_len = strlen(serialized);
-
-    for (size_t i = 0; i < count; ++i) {
-
-      satellite_server_espnow_send_json(clients[i].mac,
-                                        serialized,
-                                        json_len);
+    esp_err_t err, first_error = ESP_OK;
+    
+    for (size_t i = 0; i < count; ++i)
+    {
+        err = satellite_server_espnow_send_json(clients[i].mac, serialized, json_len);
+        if (err != ESP_OK && first_error == ESP_OK)
+        {
+            first_error = err;
+        }
     }
 
-  return ESP_OK;
+    free(serialized);
+    
+    return first_error;
 }
 
 esp_err_t satellite_server_protocol_send_heartbeat(void)
