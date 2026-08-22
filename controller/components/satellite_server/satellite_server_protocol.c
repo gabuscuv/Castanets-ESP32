@@ -6,8 +6,9 @@
 #include <stdint.h>
 #include <string.h>
 
-#include "freertos/FreeRTOS.h"
 
+#include "ESPNOW_CONFIG.h"
+#include "freertos/FreeRTOS.h"
 #include "cJSON.h"
 
 #include "esp_err.h"
@@ -225,6 +226,10 @@ esp_err_t sendjson_allclients(cJSON* message)
 
 esp_err_t satellite_server_protocol_send_heartbeat(void)
 {
+    if (satellite_server_clientmgnt_get_clients_count() == 0)
+    {
+        return ESP_OK;
+    }
     cJSON *message = cJSON_CreateObject();
 
     if (message == NULL)
@@ -253,6 +258,15 @@ esp_err_t satellite_server_protocol_send_heartbeat(void)
     return sendjson_allclients(message);
 }
 
+void satellite_espnow_heartbeat_task(void *) {
+  while (true) {
+    satellite_server_protocol_send_heartbeat();
+    vTaskDelay(pdMS_TO_TICKS(
+        CONFIG_ESPNOW_HEARTBEAT_INTERVAL_MS - 100
+    ));
+    }  
+}
+
 esp_err_t
 satellite_server_protocol_init(satellite_protocol_callback_t satellite_cb) {
     if (s_initialized){ return ESP_OK; }
@@ -263,6 +277,19 @@ satellite_server_protocol_init(satellite_protocol_callback_t satellite_cb) {
     esp_err_t err;
 
     ESP_LOGI(TAG,"Initializing Satellite client management");
+
+    if (xTaskCreate(
+            satellite_espnow_heartbeat_task,
+            "sat_espnow",
+            4096,
+            NULL,
+            4,
+            &s_task) != pdPASS)
+    {
+        ESP_LOGE(TAG, "Failed to create ESP-NOW task");
+
+        return ESP_ERR_NO_MEM;
+    }
 
     err = satellite_server_clientmgnt_init();
     if (err != ESP_OK){return err;}
@@ -276,6 +303,12 @@ esp_err_t satellite_server_protocol_deinit(void)
 {
     if (!s_initialized){ return ESP_OK; }
     esp_err_t err;
+
+    if (s_task != NULL)
+    {
+        vTaskDelete(s_task);
+        s_task = NULL;
+    }
 
     err = satellite_server_clientmgnt_deinit(); 
     if (err != ESP_OK){return err;}
