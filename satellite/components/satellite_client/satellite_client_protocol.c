@@ -37,14 +37,8 @@ static esp_err_t send_json(
     return err;
 }
 
-<<<<<<< HEAD
-esp_err_t satellite_client_protocol_init(satellite_client_protocol_callback_t time_callback) {
-=======
 esp_err_t satellite_client_protocol_init(satellite_client_protocol_callback_t time_callback)
 {
-    s_time_callback = time_callback;
->>>>>>> 465cfe5 ([satellite/satellite_client] Runtime_Client Callback Implementation (#2))
-
     if (time_callback == NULL) {return ESP_ERR_INVALID_ARG;}
   
     s_time_callback = time_callback;
@@ -58,16 +52,11 @@ esp_err_t satellite_client_protocol_send_click(
     const uint8_t server_mac[ESP_NOW_ETH_ALEN],
     uint64_t time)
 {
-    if (!server_mac)
-    {
-        return ESP_ERR_INVALID_ARG;
-    }
+    if (!s_initialized){return ESP_ERR_INVALID_STATE;}
+    if (!server_mac){return ESP_ERR_INVALID_ARG;}
 
     cJSON *root = cJSON_CreateObject();
-    if (!root)
-    {
-        return ESP_ERR_NO_MEM;
-    }
+    if (!root){return ESP_ERR_NO_MEM;}
 
     if (!cJSON_AddStringToObject(root, "type", "click") ||
     !cJSON_AddNumberToObject(root, "time", (double)time))
@@ -86,27 +75,21 @@ esp_err_t satellite_client_protocol_send_imu(
     uint64_t time,
     float x, float y, float z)
 {
-    if (!s_initialized)
-    {
-        return ESP_ERR_INVALID_STATE;
-    }
-
-    if (!server_mac)
-    {
-        return ESP_ERR_INVALID_ARG;
-    }
+    if (!s_initialized){return ESP_ERR_INVALID_STATE;}
+    if (!server_mac){return ESP_ERR_INVALID_ARG;}
 
     cJSON *root = cJSON_CreateObject();
-    if (!root)
+    if (!root){return ESP_ERR_NO_MEM;}
+
+    if (!cJSON_AddStringToObject(root, "type", "imu") ||
+        !cJSON_AddNumberToObject(root, "time", (double)time) ||
+        !cJSON_AddNumberToObject(root, "x", x) ||
+        !cJSON_AddNumberToObject(root, "y", y) ||
+        !cJSON_AddNumberToObject(root, "z", z))
     {
+        cJSON_Delete(root);
         return ESP_ERR_NO_MEM;
     }
-
-    cJSON_AddStringToObject(root, "type", "imu");
-    cJSON_AddNumberToObject(root, "time", (double)time);
-    cJSON_AddNumberToObject(root, "x", x);
-    cJSON_AddNumberToObject(root, "y", y);
-    cJSON_AddNumberToObject(root, "z", z);
 
     esp_err_t err = send_json(server_mac, root);
     cJSON_Delete(root);
@@ -115,15 +98,6 @@ esp_err_t satellite_client_protocol_send_imu(
 
 esp_err_t satellite_client_protocol_json_handle(const uint8_t src_mac[ESP_NOW_ETH_ALEN], const uint8_t *data, uint16_t data_len)
 {
-    if (!s_initialized)
-    {
-        return ESP_ERR_INVALID_STATE;
-    }
-    if (src_mac == NULL || data == NULL || data_len == 0)
-    {
-        return ESP_ERR_INVALID_ARG;
-    }
-
     cJSON *root = cJSON_ParseWithLength((const char *)data, data_len);
 
     if (root == NULL || !cJSON_IsObject(root))
@@ -155,8 +129,11 @@ satellite_client_protocol_handle(const uint8_t src_mac[ESP_NOW_ETH_ALEN],
                                  const uint8_t *data, uint16_t data_len)
 {
 
-    if (data == NULL || data_len == 0)
+    if (!s_initialized){return ESP_ERR_INVALID_STATE;}
+    if (src_mac == NULL || data == NULL || data_len == 0)
+    {
         return ESP_ERR_INVALID_ARG;
+    }
 
     const uint8_t type = data[0];
 
@@ -183,8 +160,8 @@ satellite_client_protocol_handle(const uint8_t src_mac[ESP_NOW_ETH_ALEN],
 
         satellite_message_tt satellite_msg;
         satellite_msg.type = SATELLITE_MSG_ASSIGN;
+        satellite_msg.ack_controller.role = assignment->role;
         s_time_callback(satellite_msg);
-
 
         s_role = assignment->role;
 
