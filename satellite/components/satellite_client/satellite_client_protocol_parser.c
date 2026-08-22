@@ -114,6 +114,11 @@ esp_err_t satellite_client_protocol_parse(
         return ESP_ERR_INVALID_ARG;
     }
 
+    if (strcmp(type->valuestring, "heartbeat") == 0)
+    {
+        return ESP_OK;
+    }
+
     if (strcmp(type->valuestring, "request_status") == 0)
     {
         return satellite_client_protocol_parse_request_status(message, out);

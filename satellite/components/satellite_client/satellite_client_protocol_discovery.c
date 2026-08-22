@@ -32,7 +32,7 @@ void send_discovery(void)
 }
 
 static volatile bool* s_connected_ptr;
-static TickType_t *s_last_server_packet_ptr;
+static volatile TickType_t *s_last_server_packet_ptr;
 static timeout_callback_t s_timeout_cb;
 
 esp_err_t satellite_client_discovery_init(discovery_args args)

@@ -25,8 +25,7 @@ static satellite_role_t s_requested_role = SATELLITE_ROLE_NONE;
 static satellite_role_t s_role = SATELLITE_ROLE_NONE;
 
 static volatile bool s_connected = false;
-
-static TickType_t s_last_server_packet = 0;
+static volatile TickType_t s_last_server_packet = 0;
 
 /* -------------------------------------------------------------------------- */
 /* RX                                                                         */
@@ -149,6 +148,7 @@ esp_err_t satellite_client_espnow_init(
 esp_err_t satellite_client_espnow_set_connected(bool connected)
 {
     s_connected = connected;
+    s_last_server_packet = connected ? xTaskGetTickCount() : 0;
     return ESP_OK;
 }
 

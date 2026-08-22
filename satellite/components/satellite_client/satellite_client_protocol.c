@@ -159,7 +159,7 @@ satellite_client_protocol_handle(const uint8_t src_mac[ESP_NOW_ETH_ALEN],
         }
 
         satellite_message_tt satellite_msg;
-        satellite_msg.type = SATELLITE_MSG_ASSIGN;
+        satellite_msg.type = CONTROLLER_ACK_ROLE;
         satellite_msg.ack_controller.role = assignment->role;
         s_time_callback(satellite_msg);
 

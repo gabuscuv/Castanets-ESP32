@@ -5,7 +5,7 @@ typedef void(*timeout_callback_t)(void);
 
 typedef struct {
     volatile bool *connected_ptr;
-    TickType_t *last_server_packet_ptr;
+    volatile TickType_t *last_server_packet_ptr;
     timeout_callback_t timeout_function_callback;
 } discovery_args;
 

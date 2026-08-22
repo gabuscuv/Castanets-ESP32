@@ -257,7 +257,7 @@ esp_err_t satellite_server_protocol_send_heartbeat(void)
 
 void satellite_espnow_heartbeat_task(void *) {
   while (true) {
-    /();
+    satellite_server_protocol_send_heartbeat();
     vTaskDelay(pdMS_TO_TICKS(
         CONFIG_ESPNOW_HEARTBEAT_INTERVAL_MS - 100
     ));
