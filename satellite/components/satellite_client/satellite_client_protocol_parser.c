@@ -102,8 +102,7 @@ static esp_err_t satellite_client_protocol_parse_set_time(
 esp_err_t satellite_client_protocol_parse(
     const cJSON *message, satellite_message_tt *out)
 {
-    if (message == NULL)
-        return ESP_ERR_INVALID_ARG;
+    if (message == NULL){return ESP_ERR_INVALID_ARG;}
 
     const cJSON *type = cJSON_GetObjectItemCaseSensitive(
         message,
@@ -115,6 +114,11 @@ esp_err_t satellite_client_protocol_parse(
         return ESP_ERR_INVALID_ARG;
     }
 
+    if (strcmp(type->valuestring, "heartbeat") == 0)
+    {
+        return ESP_OK;
+    }
+
     if (strcmp(type->valuestring, "request_status") == 0)
     {
         return satellite_client_protocol_parse_request_status(message, out);
@@ -122,8 +126,6 @@ esp_err_t satellite_client_protocol_parse(
 
     if (strcmp(type->valuestring, "set_time") == 0)
     {
-        uint32_t time;
-
         esp_err_t err = satellite_client_protocol_parse_set_time(message, out);
 
         if (err != ESP_OK)

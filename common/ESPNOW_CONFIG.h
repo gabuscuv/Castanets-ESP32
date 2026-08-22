@@ -18,6 +18,11 @@
  * for this long, it returns to discovery mode.
  */
 #define CONFIG_ESPNOW_CONNECTION_TIMEOUT_MS 3000
+/*
+ * Heartbeat interval
+ * Make sure is lower than CONFIG_ESPNOW_CONNECTION_TIMEOUT_MS.
+ */
+#define CONFIG_ESPNOW_HEARTBEAT_INTERVAL_MS 1000
 
 /*
  * Optional ESP-NOW Long Range mode.

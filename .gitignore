@@ -1,5 +1,6 @@
 _examples/**
 **/build/**
 **/.cache/**
+**/sdkconfig
 **/managed_components/**
 *.lock
