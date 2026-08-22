@@ -190,26 +190,23 @@ esp_err_t satellite_server_protocol_handle(
 /* -------------------------------------------------------------------------- */
 
 
-esp_err_t sendjson_allclients(cJSON* message)
-{
+esp_err_t sendjson_allclients(cJSON *message) {
+    if (message == NULL){return ESP_ERR_INVALID_ARG;}
+    
     satellite_client_info_t clients[SATELLITE_SERVER_MAX_CLIENTS];
 
     size_t count = satellite_server_clientmgnt_get_clients(
         clients, SATELLITE_SERVER_MAX_CLIENTS);
     
     char *serialized = cJSON_PrintUnformatted(message);
-
     cJSON_Delete(message);
     if (serialized == NULL) {
       return ESP_ERR_NO_MEM;
-    }
-    
-    if (serialized == NULL)
-        return ESP_ERR_NO_MEM;
+      }
+        
 
     size_t json_len = strlen(serialized);
-    esp_err_t err, first_error = ESP_OK;
-    
+    esp_err_t err,first_error = ESP_OK;
     for (size_t i = 0; i < count; ++i)
     {
         err = satellite_server_espnow_send_json(clients[i].mac, serialized, json_len);
@@ -260,7 +257,7 @@ esp_err_t satellite_server_protocol_send_heartbeat(void)
 
 void satellite_espnow_heartbeat_task(void *) {
   while (true) {
-    satellite_server_protocol_send_heartbeat();
+    /();
     vTaskDelay(pdMS_TO_TICKS(
         CONFIG_ESPNOW_HEARTBEAT_INTERVAL_MS - 100
     ));
