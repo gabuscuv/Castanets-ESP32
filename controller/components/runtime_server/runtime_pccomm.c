@@ -44,11 +44,14 @@ esp_err_t runtime_pccomm_rx_handle(pc_message_t callback) {
 
     
     case PCCOMM_CMD_SET_GAME_TIME:
-      satellite_server_push_time(callback.gametime);
+        satellite_server_push_time(callback.gametime);
+        break;
     case PCCOMM_CMD_RESET_TIMEHUB:
-      satellite_server_reset_satellites_time();
+        satellite_server_reset_satellites_time();
+        break;
     case PCCOMM_CMD_REQUEST_STATUS:
-      satellite_server_request_status();
+        satellite_server_request_status();
+        break;
 
     case PCCOMM_CMD_START_SONG:
       // TODO: PENDING
