@@ -24,6 +24,20 @@ typedef struct
 
 static satellite_client_entry_t s_clients[SATELLITE_SERVER_MAX_CLIENTS];
 
+size_t satellite_server_clientmgnt_get_clients_count()
+{
+  size_t count = 0;
+
+
+    for (size_t i = 0; i < SATELLITE_SERVER_MAX_CLIENTS; ++i)
+    {
+        if (!s_clients[i].used) {continue;}
+            
+        ++count;
+    }
+  return count;
+}
+
 size_t satellite_server_clientmgnt_get_clients(
     satellite_client_info_t *clients,
     size_t max_clients)
@@ -235,7 +249,7 @@ esp_err_t satellite_server_clientmgnt_register_client(
 
 bool satellite_server_clientmgnt_get_client_role(
     const uint8_t mac[ESP_NOW_ETH_ALEN],
-    satellite_role_t *role)
+    satellite_controller_role_t *role)
 {
     satellite_client_entry_t *client =
         find_client(mac);

@@ -1,20 +1,20 @@
 #include "satellite_server_protocol.h"
 
+#include <stdlib.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 #include <string.h>
+
+#include "freertos/FreeRTOS.h"
 
 #include "cJSON.h"
 
 #include "esp_err.h"
 #include "esp_log.h"
 #include "esp_mac.h"
-#include "esp_wifi.h"
 
-#include "satellite_espnow.h"
 #include "satellite_espnow_protocol.h"
-#include "satellite_server_espnow.h"
 #include "satellite_server_espnow_send.h"
 #include "satellite_server_clientmgnt.h"
 #include "satellite_server_protocol_parsers.h"
@@ -24,6 +24,7 @@ static bool s_initialized= false;
 
 static const char *TAG = "satellite_server_protocol";
 satellite_protocol_callback_t rx_callback;
+TaskHandle_t s_task = NULL;
 
 /* -------------------------------------------------------------------------- */
 /* JSON                                                                       */
@@ -127,9 +128,9 @@ static esp_err_t handle_json(
         return ESP_ERR_INVALID_ARG;
     }
 
-    satellite_server_clientmgnt_get_client_role(client_mac,(satellite_role_t*)(msg_parsed->role));
+    satellite_server_clientmgnt_get_client_role(client_mac,&(msg_parsed->role));
 
-    /* Transfer ownership to caller */
+    /* Deliver parsed message to callback */
     rx_callback(*msg_parsed);
 
     free(msg_parsed);
@@ -263,11 +264,13 @@ satellite_server_protocol_init(satellite_protocol_callback_t satellite_cb) {
 
 esp_err_t satellite_server_protocol_deinit(void)
 {
-    if (s_initialized){ return ESP_OK; }
+    if (!s_initialized){ return ESP_OK; }
     esp_err_t err;
 
     err = satellite_server_clientmgnt_deinit(); 
     if (err != ESP_OK){return err;}
+
+    s_initialized = false;
 
     return ESP_OK;
 }
@@ -289,8 +292,6 @@ bool satellite_server_protocol_get_role(
         role);
 }
 
-
-
 esp_err_t satellite_server_protocol_reset_satellites_time() {
       cJSON *message = cJSON_CreateObject();
 
@@ -305,11 +306,8 @@ esp_err_t satellite_server_protocol_reset_satellites_time() {
         cJSON_Delete(message);
         return ESP_ERR_NO_MEM;
     }
-
-    esp_err_t err = sendjson_allclients(message);
-    if(err){return ESP_ERR_NOT_FINISHED;}
     
-    return ESP_OK;
+    return sendjson_allclients(message);
 }
 
 esp_err_t satellite_server_protocol_push_time(uint32_t time)
@@ -337,11 +335,7 @@ esp_err_t satellite_server_protocol_push_time(uint32_t time)
         return ESP_ERR_NO_MEM;
     }
 
-    esp_err_t err = sendjson_allclients(message);
-
-    cJSON_Delete(message);
-
-    return err;
+    return sendjson_allclients(message);
 }
 
 esp_err_t satellite_server_protocol_request_status(void)
@@ -360,9 +354,5 @@ esp_err_t satellite_server_protocol_request_status(void)
         return ESP_ERR_NO_MEM;
     }
 
-    esp_err_t err = sendjson_allclients(message);
-
-    cJSON_Delete(message);
-
-    return err;
+    return sendjson_allclients(message);
 }

@@ -22,5 +22,7 @@ satellite_server_clientmgnt_register_client(const uint8_t mac[ESP_NOW_ETH_ALEN],
 satellite_role_t satellite_server_clientmgnt_get_role_available();
 
 bool satellite_server_clientmgnt_get_client_role(
-    const uint8_t mac[ESP_NOW_ETH_ALEN], satellite_role_t *role);
-size_t satellite_server_clientmgnt_get_clients(satellite_client_info_t *clients, size_t max_clients);
+    const uint8_t mac[ESP_NOW_ETH_ALEN], satellite_controller_role_t *role);
+size_t satellite_server_clientmgnt_get_clients(satellite_client_info_t *clients,
+                                               size_t max_clients);
+size_t satellite_server_clientmgnt_get_clients_count();
