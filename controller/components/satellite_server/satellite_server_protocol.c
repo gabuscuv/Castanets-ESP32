@@ -43,7 +43,7 @@ static esp_err_t handle_json(
         return ESP_ERR_INVALID_ARG;
     }
 
-    satellite_role_t role;
+    satellite_controller_role_t role;
 
     if (!satellite_server_protocol_get_role(client_mac, &role))
     {
@@ -259,7 +259,7 @@ esp_err_t satellite_server_protocol_deinit(void)
 
 bool satellite_server_protocol_get_role(
     const uint8_t client_mac[ESP_NOW_ETH_ALEN],
-    satellite_role_t *role)
+    satellite_controller_role_t *role)
 {
     if (!s_initialized)
         return false;
