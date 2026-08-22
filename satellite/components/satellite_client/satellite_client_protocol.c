@@ -35,11 +35,13 @@ static esp_err_t send_json(
     return err;
 }
 
-esp_err_t satellite_client_protocol_init(satellite_client_protocol_callback_t time_callback)
-{
-    s_time_callback = time_callback;
+esp_err_t satellite_client_protocol_init(satellite_client_protocol_callback_t time_callback) {
 
+    if (time_callback == NULL) {return ESP_ERR_INVALID_ARG;}
+  
+    s_time_callback = time_callback;
     s_role = SATELLITE_CLIENT_ROLE_UNKNOWN;
+    s_initialized = true;
 
     return ESP_OK;
 }
@@ -59,8 +61,12 @@ esp_err_t satellite_client_protocol_send_click(
         return ESP_ERR_NO_MEM;
     }
 
-    cJSON_AddStringToObject(root, "type", "click");
-    cJSON_AddNumberToObject(root, "time", (double)time);
+    if (!cJSON_AddStringToObject(root, "type", "click") ||
+    !cJSON_AddNumberToObject(root, "time", (double)time))
+    {
+        cJSON_Delete(root);
+        return ESP_ERR_NO_MEM;
+    }
 
     esp_err_t err = send_json(server_mac, root);
     cJSON_Delete(root);
