@@ -97,6 +97,30 @@ static esp_err_t satellite_client_protocol_parse_set_time(
 }
 
 /**
+ * @brief Parse a blink_satellite message.
+ *
+ * Expected JSON:
+ * {
+ *     "type": "blink_satellite"
+ * }
+ */
+esp_err_t satellite_client_protocol_parse_blink_satellite(
+    const cJSON *message, satellite_message_tt *out)
+{
+    if (message == NULL || out == NULL)
+    {
+        return ESP_ERR_INVALID_ARG;
+    }
+
+    out->type = CONTROLLER_CMD_BLINK_SATELLITE;
+
+    ESP_LOGI(TAG, "Received status request");
+
+    return ESP_OK;
+}
+
+
+/**
  * @brief Parse a message received from the satellite server.
  */
 esp_err_t satellite_client_protocol_parse(
@@ -122,6 +146,11 @@ esp_err_t satellite_client_protocol_parse(
     if (strcmp(type->valuestring, "request_status") == 0)
     {
         return satellite_client_protocol_parse_request_status(message, out);
+    }
+
+    if (strcmp(type->valuestring, "blink_satellite") == 0)
+    {
+        return satellite_client_protocol_parse_blink_satellite(message, out);
     }
 
     if (strcmp(type->valuestring, "set_time") == 0)

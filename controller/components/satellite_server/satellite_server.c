@@ -99,3 +99,9 @@ esp_err_t satellite_server_request_status()
     if(!s_initialized){return ESP_ERR_INVALID_STATE;}
     return satellite_server_protocol_request_status();
 }
+
+esp_err_t satellite_server_blink_satellite()
+{
+    if(!s_initialized){return ESP_ERR_INVALID_STATE;}
+    return satellite_server_protocol_blink_satellite();
+}

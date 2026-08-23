@@ -21,6 +21,9 @@ static esp_err_t runtime_client_callback(satellite_message_runtime_t msg)
     case CONTROLLER_CMD_RESET_TIMEHUB:
         s_time = 0;
         break;
+    case CONTROLLER_CMD_BLINK_SATELLITE:
+        ledcontroller_blink(100, 900);
+        break;
     case CONTROLLER_ACK_ROLE:
     case CONTROLLER_CMD_START_SONG:
     

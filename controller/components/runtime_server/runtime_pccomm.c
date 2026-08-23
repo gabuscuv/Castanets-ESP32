@@ -41,8 +41,6 @@ static void runtime_pccomm_report_task(void *arg)
 
 esp_err_t runtime_pccomm_rx_handle(pc_message_t callback) {
   switch (callback.msg_type) {
-
-    
     case PCCOMM_CMD_SET_GAME_TIME:
         satellite_server_push_time(callback.gametime);
         break;
@@ -52,7 +50,9 @@ esp_err_t runtime_pccomm_rx_handle(pc_message_t callback) {
     case PCCOMM_CMD_REQUEST_STATUS:
         satellite_server_request_status();
         break;
-
+    case PCCOMM_CMD_BLINK_SATELLITE:
+        satellite_server_blink_satellite();
+        break;
     case PCCOMM_CMD_START_SONG:
       // TODO: PENDING
 
@@ -60,7 +60,8 @@ esp_err_t runtime_pccomm_rx_handle(pc_message_t callback) {
     case PCCOMM_EVT_STATUS:
     case PCCOMM_CMD_HANDSHAKE:
     break;
-  };
+
+    };
   return ESP_OK;
 }
 

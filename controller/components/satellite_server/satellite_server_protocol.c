@@ -396,3 +396,22 @@ esp_err_t satellite_server_protocol_request_status(void)
 
     return sendjson_allclients(message);
 }
+
+esp_err_t satellite_server_protocol_blink_satellite(void)
+{
+    cJSON *message = cJSON_CreateObject();
+
+    if (message == NULL)
+        return ESP_ERR_NO_MEM;
+
+    if (!cJSON_AddStringToObject(
+            message,
+            "type",
+            "blink_satellite"))
+    {
+        cJSON_Delete(message);
+        return ESP_ERR_NO_MEM;
+    }
+
+    return sendjson_allclients(message);
+}

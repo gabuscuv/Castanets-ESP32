@@ -12,6 +12,7 @@ esp_err_t satellite_server_deinit();
 
 bool satellite_server_is_initialized();
 
-esp_err_t satellite_server_reset_satellites_time();
+esp_err_t satellite_server_reset_satellites_time(void);
 esp_err_t satellite_server_push_time(uint32_t time);
-esp_err_t satellite_server_request_status();
+esp_err_t satellite_server_request_status(void);
+esp_err_t satellite_server_blink_satellite(void);
