@@ -35,16 +35,18 @@ static void runtime_pccomm_report_task(void *arg)
                 esp_err_to_name(err));
         }
 
-        vTaskDelay(pdMS_TO_TICKS(5000));
+        vTaskDelay(pdMS_TO_TICKS(500));
     }
 }
 
 esp_err_t runtime_pccomm_rx_handle(pc_message_t callback) {
   switch (callback.msg_type) {
-    case PCCOMM_CMD_SET_GAME_TIME:
+  case PCCOMM_CMD_SET_GAME_TIME:
+        runtime_inputframectx_set_time(callback.gametime);
         satellite_server_push_time(callback.gametime);
         break;
     case PCCOMM_CMD_RESET_TIMEHUB:
+        runtime_inputframectx_reset_time();
         satellite_server_reset_satellites_time();
         break;
     case PCCOMM_CMD_REQUEST_STATUS:
