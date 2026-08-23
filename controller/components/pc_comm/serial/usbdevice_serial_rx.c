@@ -10,11 +10,17 @@
 
 static const char *TAG = "USBDEVICE_SERIAL_RX";
 
-#define CONFIG_PC_COMM_QUEUE_SIZE 5
-#define CONFIG_PC_COMM_TASK_STACK_SIZE 4096
-#define CONFIG_PC_COMM_TASK_PRIORITY 1
+#define CONFIG_PC_COMM_QUEUE_SIZE          5
+#define CONFIG_PC_COMM_RX_CHUNK_SIZE       CONFIG_TINYUSB_CDC_RX_BUFSIZE
+#define CONFIG_PC_COMM_MESSAGE_MAX_SIZE    1024
+#define CONFIG_PC_COMM_TASK_STACK_SIZE     4096
+#define CONFIG_PC_COMM_TASK_PRIORITY       1
 
-static uint8_t rx_buf[CONFIG_TINYUSB_CDC_RX_BUFSIZE];
+static uint8_t rx_buf[CONFIG_PC_COMM_RX_CHUNK_SIZE];
+static uint8_t rx_message[CONFIG_PC_COMM_MESSAGE_MAX_SIZE];
+
+static size_t rx_line_length;
+static bool rx_discarding;
 
 static QueueHandle_t app_queue;
 
@@ -46,6 +52,7 @@ void usbdevice_serial_rx_callback(
     int itf,
     cdcacm_event_t *event)
 {
+    (void)event;
     size_t rx_size = 0;
 
     esp_err_t ret = tinyusb_cdcacm_read(
@@ -60,20 +67,62 @@ void usbdevice_serial_rx_callback(
         return;
     }
 
-    if (rx_size == 0)
-        return;
+    for (size_t i = 0; i < rx_size; ++i)
+{
+    const uint8_t c = rx_buf[i];
 
-    app_message_t tx_msg = {
-        .buf_len = rx_size,
-        .itf = itf,
-    };
-
-    memcpy(tx_msg.buf, rx_buf, rx_size);
-
-    if (xQueueSend(app_queue, &tx_msg, 0) != pdTRUE)
+    if (c == '\n')
     {
-        ESP_LOGW(TAG, "Application queue full, dropping packet");
+        if (rx_discarding)
+        {
+            rx_discarding = false;
+            rx_line_length = 0;
+            continue;
+        }
+
+        if (rx_line_length == 0)
+            continue;
+
+        app_message_t msg = {
+            .buf_len = rx_line_length,
+            .itf = itf,
+        };
+
+        memcpy(
+            msg.buf,
+            rx_message,
+            rx_line_length);
+
+        if (xQueueSend(app_queue, &msg, 0) != pdTRUE)
+        {
+            ESP_LOGW(
+                TAG,
+                "Application queue full, dropping message");
+        }
+
+        rx_line_length = 0;
+        continue;
     }
+
+    if (rx_discarding)
+        continue;
+
+    if (c == '\r')
+        continue;
+
+    if (rx_line_length >= CONFIG_PC_COMM_MESSAGE_MAX_SIZE)
+    {
+        ESP_LOGW(
+            TAG,
+            "RX message too long, discarding");
+
+        rx_line_length = 0;
+        rx_discarding = true;
+        continue;
+    }
+
+    rx_message[rx_line_length++] = c;
+}
 }
 
 esp_err_t usbdevice_serial_rx_init(void)
@@ -82,9 +131,11 @@ esp_err_t usbdevice_serial_rx_init(void)
         CONFIG_PC_COMM_QUEUE_SIZE,
         sizeof(app_message_t));
 
-    if (app_queue == NULL)
-        return ESP_ERR_NO_MEM;
+    if (app_queue == NULL){return ESP_ERR_NO_MEM;}
 
+    rx_line_length = 0;
+    rx_discarding = false;
+    
     BaseType_t ret = xTaskCreate(
         usbdevice_serial_rx_task,
         "pccomm_rx",

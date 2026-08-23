@@ -173,19 +173,30 @@ cJSON *input_frame_to_json(const InputFrame *frame)
 }
 
 
-esp_err_t pccomm_cmd_from_json(const cJSON *json, pc_message_t *cmd)
+esp_err_t pccomm_cmd_from_json(const cJSON *json,pc_message_t *cmd)
 {
-    if (json == NULL || cmd == NULL)
+    if (json == NULL || cmd == NULL){return ESP_ERR_INVALID_ARG;}
+
+    const cJSON *version =
+        cJSON_GetObjectItemCaseSensitive(json, "version");
+
+    const cJSON *type =
+        cJSON_GetObjectItemCaseSensitive(json, "type");
+
+    const cJSON *cmd_json =
+        cJSON_GetObjectItemCaseSensitive(json, "cmd");
+
+    if (!cJSON_IsNumber(version) ||
+        version->valueint != 1 ||
+        !cJSON_IsString(type) ||
+        type->valuestring == NULL ||
+        !cJSON_IsString(cmd_json) ||
+        cmd_json->valuestring == NULL)
     {
         return ESP_ERR_INVALID_ARG;
     }
 
-    const cJSON *cmd_json = cJSON_GetObjectItemCaseSensitive(json, "cmd");
-
-    if (!cJSON_IsString(cmd_json) || cmd_json->valuestring == NULL)
-    {
-        return ESP_ERR_INVALID_ARG;
-    }
+    if (strcmp(type->valuestring, "command") != 0){return ESP_ERR_NOT_FOUND;}
 
     const char *value = cmd_json->valuestring;
 
@@ -199,9 +210,13 @@ esp_err_t pccomm_cmd_from_json(const cJSON *json, pc_message_t *cmd)
     }
     else if (strcmp(value, "set_game_time") == 0)
     {
-      cmd->msg_type = PCCOMM_CMD_SET_GAME_TIME;
-      cJSON* timeJSON = cJSON_GetObjectItemCaseSensitive(json, "time");
-      cmd->gametime = timeJSON->valuedouble;
+        const cJSON *time_json =
+            cJSON_GetObjectItemCaseSensitive(json, "time");
+
+        if (!cJSON_IsNumber(time_json)){return ESP_ERR_INVALID_ARG;}
+
+        cmd->msg_type = PCCOMM_CMD_SET_GAME_TIME;
+        cmd->gametime = time_json->valuedouble;
     }
     else if (strcmp(value, "reset_timehub") == 0)
     {
