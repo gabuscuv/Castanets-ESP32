@@ -43,6 +43,14 @@ esp_err_t serial_send(const char* message)
         offset += written;
     }
 
+    const uint8_t newline = '\n';
+
+    tinyusb_cdcacm_write_queue(
+        TINYUSB_CDC_ACM_0,
+        &newline,
+        1
+    );
+
     return ESP_OK;
 };
 
