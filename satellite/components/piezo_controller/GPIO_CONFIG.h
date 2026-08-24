@@ -6,12 +6,12 @@
     | Pin |   GPIO | Analog | Digital | Other functions        |
     | --- | ------ | ------ | ------- | ---------------------- |
     | D9  | GPIO20 | —      | D9      | MISO / SPI, SDIO_DATA0 |
-    | D1  |  GPIO1 | A1     | D1      | —                      |
+    | D1  | GPIO01 | A1     | D1      | —                      |
 */
 #define PIEZO_D0_GPIO GPIO_NUM_20
 /*
     | D10 | GPIO18 | —      | D10     | MOSI / SPI, SDIO_CMD   |
-    | D0  |  GPIO0 | A0     | D0      | —                      |
+    | D0  | GPIO00 | A0     | D0      | —                      |
 */
 // #define PIEZO_AD0_GPIO      GPIO_NUM_18
 

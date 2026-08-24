@@ -80,7 +80,7 @@ esp_err_t piezocontroller_init(piezocontroller_click_callback_t callback) {
 #ifdef PIEZO_UNSUPPORTED 
     (void)callback;
     return ESP_ERR_NOT_SUPPORTED;
-#endif
+#else
     
     if (callback == NULL){return ESP_ERR_INVALID_ARG;}
 
@@ -129,7 +129,7 @@ esp_err_t piezocontroller_init(piezocontroller_click_callback_t callback) {
     );
 
     if (err != ESP_OK){return err;}
-    #endif
+    #endif // PIEZO_AD0_GPIO
     /*
      * Create the task before enabling the ISR.
      */
@@ -161,11 +161,12 @@ esp_err_t piezocontroller_init(piezocontroller_click_callback_t callback) {
     if (err != ESP_OK){return err;}
 
     ESP_LOGI(TAG, "Piezo controller initialized: D0=GPIO%d", PIEZO_D0_GPIO);
-    #ifdef PIEZO_AD0_GPIO
+#ifdef PIEZO_AD0_GPIO
     ESP_LOGI(TAG,
              "Piezo controller initialized: AD0=GPIO%d",
              PIEZO_AD0_GPIO,
              PIEZO_D0_GPIO);
-    #endif
+#endif // PIEZO_AD0_GPIO
     return ESP_OK;
+#endif // PIEZO_UNSUPPORTED
 }
