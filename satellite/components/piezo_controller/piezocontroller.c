@@ -16,9 +16,9 @@ static const char *TAG = "PIEZOCONTROLLER";
 
 static piezocontroller_click_callback_t s_callback = NULL;
 static TaskHandle_t s_task = NULL;
-
+#ifdef PIEZO_AD0_GPIO
 static adc_oneshot_unit_handle_t s_adc_handle = NULL;
-
+#endif
 static void IRAM_ATTR piezo_isr_handler(void *arg)
 {
     BaseType_t higher_priority_task_woken = pdFALSE;
@@ -41,8 +41,8 @@ static void piezo_task(void *arg)
     {
         ulTaskNotifyTake(pdTRUE, portMAX_DELAY);
 
+#ifdef PIEZO_AD0_GPIO
         int raw = 0;
-
         esp_err_t err =
             adc_oneshot_read(
                 s_adc_handle,
@@ -59,8 +59,8 @@ static void piezo_task(void *arg)
             );
             continue;
         }
-
         ESP_LOGD(TAG, "Piezo detected, ADC=%d", raw);
+#endif
 
         if (s_callback != NULL)
         {
