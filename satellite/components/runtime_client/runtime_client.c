@@ -3,11 +3,14 @@
 #include "esp_log.h"
 #include <inttypes.h>
 #include "esp_timer.h"
-#include "piezocontroller.h"
 #include "satellite_client.h"
 #include "ledcontroller.h"
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
+
+#ifndef PIEZO_MOCK
+#include "piezocontroller.h"
+#endif
 
 static const char *TAG = "runtime_client";
 
@@ -109,11 +112,11 @@ esp_err_t runtime_client_init(void)
     err = satellite_client_init(runtime_client_callback);
     if (err != ESP_OK){return err;}
 
+#ifndef PIEZO_MOCK
     ESP_LOGI(TAG, "Intializing Piezo Controller");
     err = piezocontroller_init(runtime_piezo_callback);
     if (err != ESP_OK){return err;}
-
-#ifdef PIEZO_MOCK
+#else
     ESP_LOGI(TAG, "[PIEZO_MOCK] Intializing Piezo Mock Task");
     xTaskCreate(
         piezo_mock,
